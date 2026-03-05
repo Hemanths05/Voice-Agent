@@ -7,6 +7,7 @@ import base64
 import io
 import wave
 from typing import Tuple, Optional
+from pydub import AudioSegment
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -232,14 +233,14 @@ class AudioConverter:
         Convert TTS output to Twilio's mulaw base64 format
 
         Pipeline:
-        1. Extract PCM from WAV (if needed)
+        1. Extract PCM from WAV/MP3/etc (if needed)
         2. Resample to 8kHz (if needed)
         3. Convert PCM → mulaw
         4. Encode to base64
 
         Args:
             audio_data: Audio bytes from TTS provider
-            input_format: Format of input audio ("wav" or "pcm")
+            input_format: Format of input audio ("wav", "pcm", "mp3", etc.)
             input_sample_rate: Sample rate of input (required if format="pcm")
 
         Returns:
@@ -254,6 +255,17 @@ class AudioConverter:
                     raise ValueError("input_sample_rate required when format='pcm'")
                 pcm_data = audio_data
                 sample_rate = input_sample_rate
+            elif input_format.lower() in ["mp3", "m4a", "ogg", "flac"]:
+                # Use pydub to decode compressed formats (MP3, M4A, OGG, FLAC)
+                logger.debug(f"Decoding {input_format} audio using pydub")
+                audio_segment = AudioSegment.from_file(io.BytesIO(audio_data), format=input_format.lower())
+
+                # Convert to PCM: 16-bit, mono
+                audio_segment = audio_segment.set_channels(1).set_sample_width(2)
+                sample_rate = audio_segment.frame_rate
+                pcm_data = audio_segment.raw_data
+
+                logger.debug(f"Decoded {input_format}: sample_rate={sample_rate}Hz, pcm_size={len(pcm_data)} bytes")
             else:
                 raise ValueError(f"Unsupported input format: {input_format}")
 

@@ -11,7 +11,7 @@ from app.database.models.user import PyObjectId
 class AgentConfigBase(BaseModel):
     """Base agent configuration model with common fields"""
 
-    company_id: str = Field(..., description="Company ID (unique per company)")
+    company_id: int = Field(..., description="Company ID (unique per company)")
 
     # Provider Selection
     stt_provider: str = Field(

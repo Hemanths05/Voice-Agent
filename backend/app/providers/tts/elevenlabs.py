@@ -52,8 +52,8 @@ class ElevenLabsTTS(TTSBase):
         self,
         text: str,
         voice_id: Optional[str] = None,
-        audio_format: str = "mp3_44100_128",
-        sample_rate: int = 44100,
+        audio_format: str = "pcm_16000",
+        sample_rate: int = 16000,
         **kwargs
     ) -> TTSResponse:
         """
@@ -90,7 +90,7 @@ class ElevenLabsTTS(TTSBase):
             elevenlabs_format = audio_format
 
             # Call ElevenLabs API
-            audio_generator = await self.client.text_to_speech.convert(
+            audio_generator = self.client.text_to_speech.convert(
                 voice_id=voice,
                 text=text,
                 model_id=self.model,

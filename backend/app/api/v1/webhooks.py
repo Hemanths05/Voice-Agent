@@ -57,8 +57,13 @@ def generate_twiml_response(
 
 
 @router.post(
-    "/incoming-call",
+    "/voice",
     summary="Handle incoming call",
+    description="Twilio webhook for incoming calls"
+)
+@router.post(
+    "/incoming-call",
+    summary="Handle incoming call (alias)",
     description="Twilio webhook for incoming calls"
 )
 async def handle_incoming_call(request: Request):
@@ -160,7 +165,7 @@ async def handle_incoming_call(request: Request):
 
         # Build WebSocket URL
         # Format: wss://your-domain/ws/call/{call_sid}
-        base_url = settings.WEBSOCKET_BASE_URL or "wss://your-domain.com"
+        base_url = settings.websocket_base_url or "wss://your-domain.com"
         websocket_url = f"{base_url}/ws/call/{call_sid}"
 
         # Generate TwiML response (no greeting - will be sent via WebSocket)

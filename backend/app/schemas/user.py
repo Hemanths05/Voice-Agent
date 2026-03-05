@@ -14,7 +14,7 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=8, description="User password")
     full_name: str = Field(..., min_length=2, max_length=100, description="User full name")
     role: str = Field(..., description="User role (superadmin, admin)")
-    company_id: Optional[str] = Field(None, description="Company ID (required for admin role)")
+    company_id: Optional[int] = Field(None, description="Company ID (required for admin role)")
 
     @validator('role')
     def validate_role(cls, v):
@@ -48,7 +48,7 @@ class UserUpdate(BaseModel):
 
     full_name: Optional[str] = Field(None, min_length=2, max_length=100, description="User full name")
     role: Optional[str] = Field(None, description="User role")
-    company_id: Optional[str] = Field(None, description="Company ID")
+    company_id: Optional[int] = Field(None, description="Company ID")
     is_active: Optional[bool] = Field(None, description="Whether user is active")
 
     @validator('role')
@@ -76,7 +76,7 @@ class UserResponse(BaseModel):
     email: str = Field(..., description="User email")
     full_name: str = Field(..., description="User full name")
     role: str = Field(..., description="User role")
-    company_id: Optional[str] = Field(None, description="Company ID")
+    company_id: Optional[int] = Field(None, description="Company ID")
     is_active: bool = Field(..., description="Whether user is active")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")

@@ -164,10 +164,10 @@ async def list_calls(
             page=page,
             page_size=page_size,
             filters=filters,
-            requesting_user_id=current_user["id"]
+            requesting_user_id=current_user.get("user_id")
         )
 
-        logger.debug(f"Listed {len(response.calls)} calls (page {page}) for company {company_id}")
+        logger.debug(f"Listed {len(response.items)} calls (page {page}) for company {company_id}")
         return response
 
     except Exception as e:
@@ -207,7 +207,7 @@ async def get_call(
         call_service = CallService()
         response = await call_service.get_call(
             call_id=call_id,
-            requesting_user_id=current_user["id"]
+            requesting_user_id=current_user.get("user_id")
         )
 
         logger.debug(f"Call retrieved: {call_id}")
@@ -268,7 +268,7 @@ async def get_call_stats(
         call_service = CallService()
         response = await call_service.get_call_stats(
             company_id=company_id,
-            requesting_user_id=current_user["id"]
+            requesting_user_id=current_user.get("user_id")
         )
 
         logger.debug(f"Call stats retrieved for company: {company_id}")
@@ -346,7 +346,7 @@ async def upload_knowledge(
             filename=file.filename,
             data=upload_request,
             company_id=company_id,
-            uploaded_by_user_id=current_user["id"]
+            uploaded_by_user_id=current_user.get("user_id")
         )
 
         logger.info(f"Knowledge uploaded: {title} (ID: {response.knowledge_id})")
@@ -416,11 +416,11 @@ async def list_knowledge(
             company_id=company_id,
             page=page,
             page_size=page_size,
-            tag=tag,
-            requesting_user_id=current_user["id"]
+            tags=[tag] if tag else None,
+            requesting_user_id=current_user.get("user_id")
         )
 
-        logger.debug(f"Listed {len(response.entries)} knowledge entries (page {page})")
+        logger.debug(f"Listed {len(response.items)} knowledge entries (page {page})")
         return response
 
     except Exception as e:
@@ -460,7 +460,7 @@ async def delete_knowledge(
         knowledge_service = KnowledgeService()
         await knowledge_service.delete_knowledge(
             knowledge_id=knowledge_id,
-            deleting_user_id=current_user["id"]
+            deleting_user_id=current_user.get("user_id")
         )
 
         logger.info(f"Knowledge deleted: {knowledge_id}")
@@ -577,7 +577,7 @@ async def get_agent_config(
         agent_service = AgentService()
         response = await agent_service.get_agent_config(
             company_id=company_id,
-            requesting_user_id=current_user["id"]
+            requesting_user_id=current_user.get("user_id")
         )
 
         logger.debug(f"Agent config retrieved for company: {company_id}")
@@ -636,7 +636,7 @@ async def update_agent_config(
         response = await agent_service.update_agent_config(
             company_id=company_id,
             data=data,
-            updating_user_id=current_user["id"]
+            updating_user_id=current_user.get("user_id")
         )
 
         logger.info(f"Agent config updated for company: {company_id}")

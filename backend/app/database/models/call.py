@@ -12,7 +12,7 @@ class CallBase(BaseModel):
     """Base call model with common fields"""
 
     call_sid: str = Field(..., min_length=34, max_length=34)  # Twilio SID format
-    company_id: str = Field(...)
+    company_id: int = Field(...)
     caller_number: str = Field(..., pattern=r"^\+[1-9]\d{1,14}$")  # E.164 format
     direction: str = Field(..., pattern="^(inbound|outbound)$")
     status: str = Field(
@@ -53,7 +53,7 @@ class CallResponse(BaseModel):
 
     id: str
     call_sid: str
-    company_id: str
+    company_id: int
     caller_number: str
     direction: str
     status: str

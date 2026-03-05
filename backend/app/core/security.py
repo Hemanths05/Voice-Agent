@@ -43,6 +43,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
+# Alias for backward compatibility
+get_password_hash = hash_password
+
+
 # ==================== JWT Token Generation ====================
 
 def create_access_token(
@@ -292,6 +296,7 @@ def extract_user_from_token(token: str) -> Dict[str, Any]:
 # Export functions
 __all__ = [
     "hash_password",
+    "get_password_hash",  # Alias for hash_password
     "verify_password",
     "create_access_token",
     "create_refresh_token",

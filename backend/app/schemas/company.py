@@ -15,12 +15,40 @@ class CompanyCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Company description")
     industry: Optional[str] = Field(None, max_length=100, description="Industry/vertical")
 
+    # Configuration fields
+    status: Optional[str] = Field("active", description="Company status")
+    subscription_tier: Optional[str] = Field("free", description="Subscription tier")
+    ai_provider: Optional[str] = Field(None, description="AI/LLM provider")
+    stt_provider: Optional[str] = Field(None, description="Speech-to-text provider")
+    tts_provider: Optional[str] = Field(None, description="Text-to-speech provider")
+    max_users: Optional[int] = Field(None, description="Maximum number of users")
+    max_monthly_calls: Optional[int] = Field(None, description="Maximum monthly calls")
+
     @validator('phone_number')
     def validate_phone_format(cls, v):
-        """Validate phone is in Twilio format"""
+        """Validate phone is in E.164 format (international)"""
         import re
-        if not re.match(r'^\+1\d{10}$', v):
-            raise ValueError('Phone number must be in format: +1XXXXXXXXXX')
+        # E.164 format: + followed by country code and number (up to 15 digits total)
+        if not re.match(r'^\+[1-9]\d{1,14}$', v):
+            raise ValueError('Phone number must be in E.164 format: +[country code][number] (e.g., +919876543210)')
+        return v
+
+    @validator('status')
+    def validate_status(cls, v):
+        """Validate status is valid"""
+        if v is not None:
+            allowed_statuses = ['active', 'inactive', 'suspended']
+            if v not in allowed_statuses:
+                raise ValueError(f"Status must be one of: {', '.join(allowed_statuses)}")
+        return v
+
+    @validator('subscription_tier')
+    def validate_subscription_tier(cls, v):
+        """Validate subscription tier is valid"""
+        if v is not None:
+            allowed_tiers = ['free', 'basic', 'pro', 'enterprise']
+            if v not in allowed_tiers:
+                raise ValueError(f"Subscription tier must be one of: {', '.join(allowed_tiers)}")
         return v
 
     class Config:
@@ -29,7 +57,14 @@ class CompanyCreate(BaseModel):
                 "name": "Acme Corporation",
                 "phone_number": "+15551234567",
                 "description": "Leading provider of roadrunner traps",
-                "industry": "Manufacturing"
+                "industry": "Manufacturing",
+                "status": "active",
+                "subscription_tier": "pro",
+                "ai_provider": "openai",
+                "stt_provider": "deepgram",
+                "tts_provider": "elevenlabs",
+                "max_users": 10,
+                "max_monthly_calls": 1000
             }
         }
 
@@ -42,20 +77,48 @@ class CompanyUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Company description")
     industry: Optional[str] = Field(None, max_length=100, description="Industry/vertical")
 
+    # Configuration fields
+    status: Optional[str] = Field(None, description="Company status")
+    subscription_tier: Optional[str] = Field(None, description="Subscription tier")
+    ai_provider: Optional[str] = Field(None, description="AI/LLM provider")
+    stt_provider: Optional[str] = Field(None, description="Speech-to-text provider")
+    tts_provider: Optional[str] = Field(None, description="Text-to-speech provider")
+    max_users: Optional[int] = Field(None, description="Maximum number of users")
+    max_monthly_calls: Optional[int] = Field(None, description="Maximum monthly calls")
+
     @validator('phone_number')
     def validate_phone_format(cls, v):
-        """Validate phone is in Twilio format"""
+        """Validate phone is in E.164 format (international)"""
         if v is not None:
             import re
-            if not re.match(r'^\+1\d{10}$', v):
-                raise ValueError('Phone number must be in format: +1XXXXXXXXXX')
+            if not re.match(r'^\+[1-9]\d{1,14}$', v):
+                raise ValueError('Phone number must be in E.164 format: +[country code][number] (e.g., +919876543210)')
+        return v
+
+    @validator('status')
+    def validate_status(cls, v):
+        """Validate status is valid"""
+        if v is not None:
+            allowed_statuses = ['active', 'inactive', 'suspended']
+            if v not in allowed_statuses:
+                raise ValueError(f"Status must be one of: {', '.join(allowed_statuses)}")
+        return v
+
+    @validator('subscription_tier')
+    def validate_subscription_tier(cls, v):
+        """Validate subscription tier is valid"""
+        if v is not None:
+            allowed_tiers = ['free', 'basic', 'pro', 'enterprise']
+            if v not in allowed_tiers:
+                raise ValueError(f"Subscription tier must be one of: {', '.join(allowed_tiers)}")
         return v
 
     class Config:
         schema_extra = {
             "example": {
                 "name": "Acme Corporation Inc.",
-                "description": "Updated description"
+                "description": "Updated description",
+                "subscription_tier": "enterprise"
             }
         }
 
@@ -84,12 +147,22 @@ class CompanyStatusUpdate(BaseModel):
 class CompanyResponse(BaseModel):
     """Response schema for company information"""
 
-    id: str = Field(..., description="Company ID")
+    id: int = Field(..., description="Company ID (sequential)")
     name: str = Field(..., description="Company name")
     phone_number: str = Field(..., description="Twilio phone number")
     description: Optional[str] = Field(None, description="Company description")
     industry: Optional[str] = Field(None, description="Industry/vertical")
     status: str = Field(..., description="Company status")
+
+    # Configuration fields
+    subscription_tier: Optional[str] = Field("free", description="Subscription tier")
+    ai_provider: Optional[str] = Field(None, description="AI/LLM provider")
+    stt_provider: Optional[str] = Field(None, description="Speech-to-text provider")
+    tts_provider: Optional[str] = Field(None, description="Text-to-speech provider")
+    max_users: Optional[int] = Field(None, description="Maximum number of users")
+    max_monthly_calls: Optional[int] = Field(None, description="Maximum monthly calls")
+    current_call_count: Optional[int] = Field(0, description="Current call count for the month")
+
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
@@ -100,12 +173,19 @@ class CompanyResponse(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "id": "507f1f77bcf86cd799439012",
+                "id": 1,
                 "name": "Acme Corporation",
                 "phone_number": "+15551234567",
                 "description": "Leading provider of roadrunner traps",
                 "industry": "Manufacturing",
                 "status": "active",
+                "subscription_tier": "pro",
+                "ai_provider": "openai",
+                "stt_provider": "deepgram",
+                "tts_provider": "elevenlabs",
+                "max_users": 10,
+                "max_monthly_calls": 1000,
+                "current_call_count": 245,
                 "created_at": "2024-01-15T10:30:00Z",
                 "updated_at": "2024-01-15T10:30:00Z",
                 "total_calls": 1250,
@@ -151,7 +231,7 @@ class CompanyListResponse(BaseModel):
 class CompanyStatsResponse(BaseModel):
     """Response schema for company statistics"""
 
-    company_id: str = Field(..., description="Company ID")
+    company_id: int = Field(..., description="Company ID (sequential)")
     total_calls: int = Field(..., description="Total number of calls")
     successful_calls: int = Field(..., description="Number of successful calls")
     failed_calls: int = Field(..., description="Number of failed calls")

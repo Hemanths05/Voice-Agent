@@ -56,7 +56,8 @@ class AgentService:
             AuthorizationError: If user doesn't have permission
         """
         try:
-            Validators.validate_mongodb_id(company_id, "company_id")
+            if not company_id:
+                raise ValidationError("company_id is required", {"field": "company_id"})
 
             # Check authorization
             if requesting_user_id:
@@ -99,7 +100,8 @@ class AgentService:
             AuthorizationError: If user doesn't have permission
         """
         try:
-            Validators.validate_mongodb_id(company_id, "company_id")
+            if not company_id:
+                raise ValidationError("company_id is required", {"field": "company_id"})
 
             # Check authorization
             if updating_user_id:
@@ -108,8 +110,45 @@ class AgentService:
             # Get existing config
             config = await self.agent_configs_collection.find_one({"company_id": company_id})
 
+            # If config doesn't exist, create it with defaults
             if not config:
-                raise AgentConfigNotFoundError(f"Agent config not found for company: {company_id}")
+                from app.config import settings
+
+                # Create new config with default values from settings
+                new_config = {
+                    "company_id": company_id,
+                    "stt_provider": settings.stt_provider,
+                    "llm_provider": settings.llm_provider,
+                    "tts_provider": settings.tts_provider,
+                    "embeddings_provider": settings.embeddings_provider,
+                    "stt_model": None,
+                    "llm_model": None,
+                    "tts_model": None,
+                    "embeddings_model": None,
+                    "temperature": settings.default_temperature,
+                    "max_tokens": settings.default_max_tokens,
+                    "top_p": settings.default_top_p,
+                    "voice_id": None,
+                    "voice_settings": {},
+                    "system_prompt": settings.default_system_prompt,
+                    "greeting_message": settings.default_greeting,
+                    "enable_rag": False,
+                    "rag_top_k": settings.rag_top_k,
+                    "conversation_history_limit": 10,
+                    "fallback_stt_provider": None,
+                    "fallback_llm_provider": None,
+                    "fallback_tts_provider": None,
+                    "enable_interruption": True,
+                    "silence_timeout": 3,
+                    "metadata": {},
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow()
+                }
+
+                # Insert the new config
+                await self.agent_configs_collection.insert_one(new_config)
+                config = new_config
+                logger.info(f"Created new agent config for company: {company_id}")
 
             # Build update document
             update_doc = {"updated_at": datetime.utcnow()}
@@ -312,7 +351,7 @@ class AgentService:
         Raises:
             AuthorizationError: If not authorized
         """
-        user = await self.users_collection.find_one({"_id": ObjectId(user_id)})
+        user = await self.users_collection.find_one({"_id": int(user_id)})
         if not user:
             raise AuthorizationError("User not found")
 

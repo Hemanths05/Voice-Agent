@@ -58,7 +58,8 @@ class CallService:
         try:
             # Validate inputs
             Validators.validate_twilio_sid(data.call_sid, "Call SID", "call_sid")
-            Validators.validate_mongodb_id(data.company_id, "company_id")
+            if not data.company_id:
+                raise ValidationError("company_id is required", {"field": "company_id"})
             Validators.validate_phone(data.from_number, allow_twilio_format=True)
             Validators.validate_phone(data.to_number, allow_twilio_format=True)
 
@@ -358,7 +359,8 @@ class CallService:
             AuthorizationError: If user doesn't have permission
         """
         try:
-            Validators.validate_mongodb_id(company_id, "company_id")
+            if not company_id:
+                raise ValidationError("company_id is required", {"field": "company_id"})
 
             # Check authorization
             if requesting_user_id:
@@ -408,7 +410,7 @@ class CallService:
             call_responses = [self._build_call_response(call) for call in calls]
 
             return CallListResponse(
-                calls=call_responses,
+                items=call_responses,
                 total=total,
                 page=page,
                 page_size=page_size,
@@ -440,7 +442,8 @@ class CallService:
             AuthorizationError: If user doesn't have permission
         """
         try:
-            Validators.validate_mongodb_id(company_id, "company_id")
+            if not company_id:
+                raise ValidationError("company_id is required", {"field": "company_id"})
 
             # Check authorization
             if requesting_user_id:
@@ -571,7 +574,7 @@ class CallService:
         Raises:
             AuthorizationError: If not authorized
         """
-        user = await self.users_collection.find_one({"_id": ObjectId(user_id)})
+        user = await self.users_collection.find_one({"_id": int(user_id)})
         if not user:
             raise AuthorizationError("User not found")
 

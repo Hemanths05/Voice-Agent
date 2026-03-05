@@ -6,6 +6,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict, Any, Optional
 import json
 import asyncio
+import base64
 from datetime import datetime
 
 from app.services.voice_pipeline_service import VoicePipelineService
@@ -35,10 +36,16 @@ class CallHandler:
         self.call_service = CallService()
         self.agent_service = AgentService()
 
-        # Audio buffer
+        # Audio buffer - use double buffering to avoid dropping audio
         self.audio_buffer: bytes = b""
         self.buffer_duration_ms: int = 0
-        self.target_buffer_ms: int = 2000  # 2 seconds of audio before processing
+        self.min_buffer_ms: int = 600  # Minimum 600ms before considering processing
+        self.max_buffer_ms: int = 10000  # Maximum 10 seconds (safety valve for very long speech)
+        self.silence_threshold_ms: int = 500  # 500ms of silence = end of speech
+        self.last_audio_time: Optional[float] = None  # Timestamp of last audio chunk
+        self.is_processing: bool = False  # Track processing state
+        self.processing_lock: asyncio.Lock = asyncio.Lock()  # Prevent concurrent processing
+        self.silence_detector_task: Optional[asyncio.Task] = None  # Single silence detector
 
         # Session state
         self.company_id: Optional[str] = None
@@ -177,6 +184,13 @@ class CallHandler:
                 await self._send_agent_message(websocket, agent_config.greeting_message)
                 self.greeting_sent = True
 
+            # Start the silence detector task
+            if not self.silence_detector_task:
+                self.silence_detector_task = asyncio.create_task(
+                    self._continuous_silence_detector(websocket)
+                )
+                logger.debug("Started continuous silence detector")
+
         except Exception as e:
             logger.error(f"Error handling start event: {str(e)}", exc_info=True)
             await self._send_error_message(
@@ -204,15 +218,20 @@ class CallHandler:
                 logger.warning("Received media event without payload")
                 return
 
-            # Add to buffer
-            # Note: We're storing base64 strings and will decode when processing
-            # Each media chunk is ~20ms of audio
-            self.audio_buffer += audio_base64.encode('utf-8')
-            self.buffer_duration_ms += 20  # Twilio sends 20ms chunks
+            # IMPORTANT: Continue buffering audio even if processing
+            # (we use double-buffering to avoid dropping audio)
 
-            # Check if buffer is ready for processing
-            if self.buffer_duration_ms >= self.target_buffer_ms:
-                await self._process_buffer(websocket)
+            # Decode base64 chunk to raw mulaw bytes and add to buffer
+            # Each media chunk is ~20ms of audio
+            # CRITICAL: We must decode each chunk and concatenate raw bytes,
+            # not concatenate base64 strings (that creates corrupted data)
+            mulaw_chunk = base64.b64decode(audio_base64)
+            self.audio_buffer += mulaw_chunk
+            self.buffer_duration_ms += 20  # Twilio sends 20ms chunks
+            self.last_audio_time = asyncio.get_event_loop().time()
+
+            # The continuous silence detector task handles processing
+            # No need to create tasks here - it checks every 100ms
 
         except Exception as e:
             logger.error(f"Error handling media event: {str(e)}", exc_info=True)
@@ -279,6 +298,61 @@ class CallHandler:
 
         self.is_active = False
 
+    async def _continuous_silence_detector(self, websocket: WebSocket):
+        """
+        Continuously monitors for silence and triggers processing
+
+        This task runs in the background throughout the call lifecycle.
+        It checks every 100ms if:
+        1. We have minimum audio buffered (600ms)
+        2. No new audio has arrived for silence_threshold_ms (500ms)
+        3. We're not currently processing
+
+        When all conditions are met, it triggers buffer processing.
+
+        Args:
+            websocket: WebSocket connection
+        """
+        try:
+            logger.debug("Continuous silence detector started")
+
+            while self.is_active:
+                # Check every 100ms
+                await asyncio.sleep(0.1)
+
+                # Skip if no audio buffered yet or already processing
+                if not self.audio_buffer or not self.last_audio_time or self.is_processing:
+                    continue
+
+                # Skip if buffer too small
+                if self.buffer_duration_ms < self.min_buffer_ms:
+                    continue
+
+                # Calculate silence duration
+                current_time = asyncio.get_event_loop().time()
+                silence_duration_ms = (current_time - self.last_audio_time) * 1000
+
+                # Check if we should process:
+                # 1. Silence threshold exceeded (normal case)
+                # 2. Buffer is too large (safety valve)
+                should_process = (
+                    silence_duration_ms >= self.silence_threshold_ms or
+                    self.buffer_duration_ms >= self.max_buffer_ms
+                )
+
+                if should_process:
+                    logger.info(
+                        f"Triggering processing: buffer={self.buffer_duration_ms}ms, "
+                        f"silence={silence_duration_ms:.0f}ms, "
+                        f"max_exceeded={self.buffer_duration_ms >= self.max_buffer_ms}"
+                    )
+                    await self._process_buffer(websocket)
+
+        except asyncio.CancelledError:
+            logger.debug("Continuous silence detector cancelled")
+        except Exception as e:
+            logger.error(f"Error in continuous silence detector: {str(e)}", exc_info=True)
+
     async def _process_buffer(self, websocket: WebSocket):
         """
         Process accumulated audio buffer through voice pipeline
@@ -286,57 +360,66 @@ class CallHandler:
         Args:
             websocket: WebSocket connection
         """
-        try:
-            if not self.audio_buffer or not self.company_id:
-                return
+        # Use lock to prevent concurrent processing
+        async with self.processing_lock:
+            try:
+                if not self.audio_buffer or not self.company_id:
+                    return
 
-            # Decode buffer (it's stored as base64 bytes)
-            audio_base64 = self.audio_buffer.decode('utf-8')
+                # Set processing flag
+                self.is_processing = True
 
-            logger.debug(
-                f"Processing audio buffer: {len(audio_base64)} chars, "
-                f"{self.buffer_duration_ms}ms"
-            )
+                # Encode the raw mulaw buffer to base64 for the pipeline
+                audio_base64 = base64.b64encode(self.audio_buffer).decode('utf-8')
 
-            # Process through voice pipeline
-            result = await self.voice_pipeline.process_audio(
-                audio_base64=audio_base64,
-                call_sid=self.call_sid,
-                company_id=self.company_id
-            )
+                logger.debug(
+                    f"Processing audio buffer: {len(audio_base64)} chars base64, "
+                    f"{len(self.audio_buffer)} bytes mulaw, {self.buffer_duration_ms}ms"
+                )
 
-            self.total_audio_processed += 1
+                # Clear buffer immediately to start collecting next utterance
+                self.audio_buffer = b""
+                self.buffer_duration_ms = 0
 
-            # Log latency
-            logger.info(
-                f"Voice pipeline completed: {self.call_sid} | "
-                f"Latency: {result['latency_ms']}ms | "
-                f"Transcript: '{result['transcript'][:50]}...'"
-            )
+                # Process through voice pipeline
+                result = await self.voice_pipeline.process_audio(
+                    audio_base64=audio_base64,
+                    call_sid=self.call_sid,
+                    company_id=self.company_id
+                )
 
-            # Log detailed latency breakdown for optimization
-            logger.debug(f"Latency breakdown: {result['latency_breakdown']}")
+                self.total_audio_processed += 1
 
-            # Send response audio to Twilio
-            if result['response_audio']:
-                await self._send_audio(websocket, result['response_audio'])
+                # Log latency
+                logger.info(
+                    f"Voice pipeline completed: {self.call_sid} | "
+                    f"Latency: {result['latency_ms']}ms | "
+                    f"Transcript: '{result['transcript'][:50]}...'"
+                )
 
-            # Clear buffer
-            self.audio_buffer = b""
-            self.buffer_duration_ms = 0
+                # Log detailed latency breakdown for optimization
+                logger.debug(f"Latency breakdown: {result['latency_breakdown']}")
 
-        except Exception as e:
-            logger.error(f"Error processing audio buffer: {str(e)}", exc_info=True)
+                # Send response audio to Twilio (only if connection is still open)
+                if result['response_audio'] and self.is_active:
+                    await self._send_audio(websocket, result['response_audio'])
 
-            # Send error message to caller
-            await self._send_error_message(
-                websocket,
-                "I'm sorry, I didn't catch that. Could you please repeat?"
-            )
+            except Exception as e:
+                logger.error(f"Error processing audio buffer: {str(e)}", exc_info=True)
 
-            # Clear buffer anyway to prevent buildup
-            self.audio_buffer = b""
-            self.buffer_duration_ms = 0
+                # Send error message to caller (only if connection is still open)
+                if self.is_active:
+                    try:
+                        await self._send_error_message(
+                            websocket,
+                            "I'm sorry, I didn't catch that. Could you please repeat?"
+                        )
+                    except Exception:
+                        pass  # Ignore errors in error handling
+
+            finally:
+                # Always clear processing flag
+                self.is_processing = False
 
     async def _send_audio(self, websocket: WebSocket, audio_base64: str):
         """
@@ -347,6 +430,10 @@ class CallHandler:
             audio_base64: Base64-encoded mulaw audio
         """
         try:
+            if not self.is_active or not self.stream_sid:
+                logger.warning("Cannot send audio - connection not active")
+                return
+
             # Split audio into chunks (Twilio expects ~20ms chunks)
             # For simplicity, we'll send the entire audio in one media event
             # In production, you might want to chunk this for smoother playback
@@ -363,8 +450,16 @@ class CallHandler:
 
             logger.debug(f"Sent audio to Twilio: {len(audio_base64)} chars")
 
+        except WebSocketDisconnect:
+            logger.info("WebSocket disconnected while sending audio")
+            self.is_active = False
         except Exception as e:
-            logger.error(f"Error sending audio: {str(e)}", exc_info=True)
+            # Don't log full traceback for connection errors
+            if "ConnectionClosed" in str(type(e).__name__) or "ClientDisconnected" in str(type(e).__name__):
+                logger.info(f"Connection closed while sending audio: {type(e).__name__}")
+                self.is_active = False
+            else:
+                logger.error(f"Error sending audio: {str(e)}", exc_info=True)
 
     async def _send_agent_message(self, websocket: WebSocket, text: str):
         """
@@ -410,6 +505,15 @@ class CallHandler:
             websocket: WebSocket connection
         """
         try:
+            # Cancel silence detector task
+            if self.silence_detector_task and not self.silence_detector_task.done():
+                self.silence_detector_task.cancel()
+                try:
+                    await self.silence_detector_task
+                except asyncio.CancelledError:
+                    pass
+                logger.debug("Cancelled silence detector task")
+
             # Close voice pipeline session
             if self.call_sid:
                 self.voice_pipeline.cleanup_session(self.call_sid)

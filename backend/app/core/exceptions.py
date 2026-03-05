@@ -50,6 +50,61 @@ class InvalidCredentialsError(AuthenticationError):
         super().__init__(message)
 
 
+class UserAlreadyExistsError(VoiceAgentException):
+    """Raised when trying to create a user that already exists"""
+
+    def __init__(self, email: str):
+        message = f"User already exists with email: {email}"
+        super().__init__(message, status_code=409, details={"email": email})
+
+
+class UserNotFoundError(VoiceAgentException):
+    """Raised when a user is not found"""
+
+    def __init__(self, identifier: str):
+        message = f"User not found: {identifier}"
+        super().__init__(message, status_code=404, details={"identifier": identifier})
+
+
+class CompanyNotFoundError(VoiceAgentException):
+    """Raised when a company is not found"""
+
+    def __init__(self, identifier: str):
+        message = f"Company not found: {identifier}"
+        super().__init__(message, status_code=404, details={"identifier": identifier})
+
+
+class CallNotFoundError(VoiceAgentException):
+    """Raised when a call is not found"""
+
+    def __init__(self, identifier: str):
+        message = f"Call not found: {identifier}"
+        super().__init__(message, status_code=404, details={"identifier": identifier})
+
+
+class KnowledgeNotFoundError(VoiceAgentException):
+    """Raised when a knowledge document is not found"""
+
+    def __init__(self, identifier: str):
+        message = f"Knowledge document not found: {identifier}"
+        super().__init__(message, status_code=404, details={"identifier": identifier})
+
+
+class AgentConfigNotFoundError(VoiceAgentException):
+    """Raised when agent configuration is not found"""
+
+    def __init__(self, company_id: str):
+        message = f"Agent configuration not found for company: {company_id}"
+        super().__init__(message, status_code=404, details={"company_id": company_id})
+
+
+class EmbeddingsError(VoiceAgentException):
+    """Raised when embeddings generation fails"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(f"Embeddings error: {message}", status_code=500, details=details)
+
+
 # ==================== Database Errors ====================
 
 class DatabaseError(VoiceAgentException):
@@ -222,8 +277,15 @@ class InvalidAudioFormatError(AudioProcessingError):
 
 # ==================== Voice Pipeline Errors ====================
 
+class PipelineError(VoiceAgentException):
+    """Simple exception for voice pipeline errors"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, status_code=500, details=details)
+
+
 class VoicePipelineError(VoiceAgentException):
-    """Base exception for voice pipeline errors"""
+    """Base exception for voice pipeline errors with stage tracking"""
 
     def __init__(self, message: str, stage: str, details: Optional[Dict[str, Any]] = None):
         details = details or {}
@@ -343,6 +405,13 @@ __all__ = [
     "AuthorizationError",
     "InvalidTokenError",
     "InvalidCredentialsError",
+    "UserAlreadyExistsError",
+    "UserNotFoundError",
+    "CompanyNotFoundError",
+    "CallNotFoundError",
+    "KnowledgeNotFoundError",
+    "AgentConfigNotFoundError",
+    "EmbeddingsError",
     "DatabaseError",
     "DocumentNotFoundError",
     "DuplicateDocumentError",
@@ -362,6 +431,7 @@ __all__ = [
     "AudioProcessingError",
     "AudioConversionError",
     "InvalidAudioFormatError",
+    "PipelineError",
     "VoicePipelineError",
     "PipelineTimeoutError",
     "TelephonyError",

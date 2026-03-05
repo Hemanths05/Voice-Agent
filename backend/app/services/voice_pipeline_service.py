@@ -6,7 +6,7 @@ Target Latency: <2 seconds end-to-end
 """
 import asyncio
 import time
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 
 from app.core.logging_config import get_logger
@@ -244,7 +244,7 @@ class VoicePipelineService:
 
             # Step 7: TTS (Text-to-Speech)
             tts_start = time.time()
-            tts_audio = await self._synthesize_speech(
+            tts_audio, tts_format, tts_sample_rate = await self._synthesize_speech(
                 text=response_text,
                 tts_provider=agent_config.tts_provider,
                 tts_model=agent_config.tts_model,
@@ -258,8 +258,8 @@ class VoicePipelineService:
             audio_out_start = time.time()
             response_audio_base64 = self.audio_converter.tts_to_twilio_format(
                 tts_audio,
-                input_format="wav",  # Assuming TTS returns WAV
-                input_sample_rate=None
+                input_format=tts_format,
+                input_sample_rate=tts_sample_rate if tts_format == "pcm" else None
             )
             latency_breakdown["audio_conversion_out"] = (time.time() - audio_out_start) * 1000
 
@@ -327,7 +327,7 @@ class VoicePipelineService:
                 except Exception as fallback_e:
                     logger.error(f"Fallback STT also failed: {str(fallback_e)}")
 
-            raise STTProviderError(f"STT transcription failed: {str(e)}")
+            raise STTProviderError(provider, f"STT transcription failed: {str(e)}")
 
     def _build_llm_messages(
         self,
@@ -420,7 +420,7 @@ class VoicePipelineService:
         voice_id: Optional[str],
         voice_settings: Optional[Dict[str, Any]],
         fallback_provider: Optional[str]
-    ) -> bytes:
+    ) -> Tuple[bytes, str, int]:
         """
         Synthesize speech with fallback
 
@@ -433,7 +433,7 @@ class VoicePipelineService:
             fallback_provider: Fallback provider on failure
 
         Returns:
-            Audio bytes (WAV format)
+            Tuple of (audio_bytes, audio_format, sample_rate)
 
         Raises:
             TTSProviderError: If synthesis fails
@@ -450,7 +450,7 @@ class VoicePipelineService:
                 kwargs.update(voice_settings)
 
             response = await tts.synthesize(text, **kwargs)
-            return response.audio_data
+            return response.audio_data, response.audio_format, response.sample_rate
 
         except Exception as e:
             logger.error(f"TTS failed with {tts_provider}: {str(e)}")
@@ -461,11 +461,11 @@ class VoicePipelineService:
                     logger.info(f"Trying fallback TTS provider: {fallback_provider}")
                     tts_fallback = TTSFactory.create(fallback_provider)
                     response = await tts_fallback.synthesize(text)
-                    return response.audio_data
+                    return response.audio_data, response.audio_format, response.sample_rate
                 except Exception as fallback_e:
                     logger.error(f"Fallback TTS also failed: {str(fallback_e)}")
 
-            raise TTSProviderError(f"TTS synthesis failed: {str(e)}")
+            raise TTSProviderError(tts_provider, f"TTS synthesis failed: {str(e)}")
 
     def _get_or_create_session(
         self,
@@ -554,7 +554,7 @@ class VoicePipelineService:
             agent_config = await self.agent_service.get_agent_config(company_id)
 
             # Synthesize speech
-            tts_audio = await self._synthesize_speech(
+            tts_audio, tts_format, tts_sample_rate = await self._synthesize_speech(
                 text=text,
                 tts_provider=agent_config.tts_provider,
                 tts_model=agent_config.tts_model,
@@ -566,7 +566,8 @@ class VoicePipelineService:
             # Convert to Twilio format
             audio_base64 = self.audio_converter.tts_to_twilio_format(
                 tts_audio,
-                input_format="wav"
+                input_format=tts_format,
+                input_sample_rate=tts_sample_rate if tts_format == "pcm" else None
             )
 
             logger.info(f"Synthesized greeting: '{text[:50]}...'")
@@ -604,7 +605,7 @@ class VoicePipelineService:
             session.add_message("assistant", agent_config.greeting_message)
 
             # Synthesize greeting
-            tts_audio = await self._synthesize_speech(
+            tts_audio, tts_format, tts_sample_rate = await self._synthesize_speech(
                 text=agent_config.greeting_message,
                 tts_provider=agent_config.tts_provider,
                 tts_model=agent_config.tts_model,
@@ -616,7 +617,8 @@ class VoicePipelineService:
             # Convert to Twilio format
             greeting_audio_base64 = self.audio_converter.tts_to_twilio_format(
                 tts_audio,
-                input_format="wav"
+                input_format=tts_format,
+                input_sample_rate=tts_sample_rate if tts_format == "pcm" else None
             )
 
             logger.info(f"Generated greeting for call: {call_sid}")

@@ -21,7 +21,7 @@ class KnowledgeMetadata(BaseModel):
 class KnowledgeBaseBase(BaseModel):
     """Base knowledge base model with common fields"""
 
-    company_id: str = Field(...)
+    company_id: int = Field(...)
     title: str = Field(..., min_length=1, max_length=500)
     content: str = Field(..., min_length=1)
     vector_id: str = Field(...)  # ID in Qdrant

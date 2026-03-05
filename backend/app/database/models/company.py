@@ -29,7 +29,7 @@ class CompanyCreate(CompanyBase):
 class CompanyInDB(CompanyBase):
     """Company model as stored in database"""
 
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    id: int = Field(..., alias="_id", description="Sequential company ID")
     ai_credentials: Optional[Dict[str, Any]] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -62,7 +62,7 @@ class CompanyResponse(BaseModel):
             CompanyResponse instance
         """
         return cls(
-            id=str(company.id),
+            id=company.id,
             name=company.name,
             phone_number=company.phone_number,
             status=company.status,

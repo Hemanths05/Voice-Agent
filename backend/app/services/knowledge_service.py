@@ -525,7 +525,7 @@ class KnowledgeService:
             ]
 
             return KnowledgeListResponse(
-                knowledge_entries=knowledge_responses,
+                items=knowledge_responses,
                 total=total,
                 page=page,
                 page_size=page_size,
@@ -678,7 +678,7 @@ class KnowledgeService:
         Raises:
             AuthorizationError: If not authorized
         """
-        user = await self.users_collection.find_one({"_id": ObjectId(user_id)})
+        user = await self.users_collection.find_one({"_id": int(user_id)})
         if not user:
             raise AuthorizationError("User not found")
 

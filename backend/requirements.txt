@@ -17,10 +17,11 @@ python-dotenv==1.0.0
 # Authentication
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
 
 # AI Providers - STT
 openai==1.10.0
-groq==0.4.1
+groq==0.11.0
 assemblyai==0.20.0
 deepgram-sdk==3.0.0
 
@@ -29,10 +30,10 @@ anthropic==0.18.1
 google-generativeai==0.3.2
 
 # AI Providers - TTS
-elevenlabs==0.2.27
+elevenlabs==1.2.2
 
 # AI Providers - Embeddings
-voyageai==0.2.0
+voyageai>=0.2.1,<0.3
 cohere==4.45
 
 # Document Processing

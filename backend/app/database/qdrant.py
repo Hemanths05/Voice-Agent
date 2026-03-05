@@ -310,6 +310,60 @@ async def delete_vectors(
         raise VectorDatabaseError(f"Failed to delete vectors: {str(e)}")
 
 
+async def delete_vectors_by_filter(
+    company_id: str,
+    filter_payload: Dict[str, Any],
+) -> None:
+    """
+    Delete vectors matching company_id and additional payload filters
+
+    Args:
+        company_id: Company ID (required for multi-tenancy)
+        filter_payload: Additional payload fields to filter by (e.g., {"knowledge_id": "xyz"})
+
+    Raises:
+        VectorDatabaseError: If deletion fails
+    """
+    client = get_qdrant_client()
+    collection_name = settings.qdrant_collection_name
+
+    try:
+        # Build filter conditions
+        must_conditions = [
+            FieldCondition(
+                key="company_id",
+                match=MatchValue(value=company_id),
+            )
+        ]
+
+        # Add additional filters from filter_payload
+        for key, value in filter_payload.items():
+            must_conditions.append(
+                FieldCondition(
+                    key=key,
+                    match=MatchValue(value=value),
+                )
+            )
+
+        # Create combined filter
+        delete_filter = Filter(must=must_conditions)
+
+        # Delete points
+        await client.delete(
+            collection_name=collection_name,
+            points_selector=delete_filter,
+        )
+
+        logger.info(
+            f"✓ Deleted vectors for company {company_id} "
+            f"with filters: {filter_payload}"
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to delete vectors by filter: {str(e)}", exc_info=True)
+        raise VectorDatabaseError(f"Failed to delete vectors by filter: {str(e)}")
+
+
 async def delete_vectors_by_company(company_id: str) -> None:
     """
     Delete all vectors for a company
@@ -397,6 +451,7 @@ __all__ = [
     "upsert_vectors",
     "search_vectors",
     "delete_vectors",
+    "delete_vectors_by_filter",
     "delete_vectors_by_company",
     "count_vectors_by_company",
 ]

@@ -30,8 +30,8 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     "/register",
     response_model=LoginResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Register new user",
-    description="Register a new admin or superadmin user. If company_id is provided, creates an admin user for that company."
+    summary="Register new company admin",
+    description="Register a new company admin user. Requires a valid company_id. Superadmin accounts must be created directly in the database."
 )
 async def register(data: RegisterRequest):
     """

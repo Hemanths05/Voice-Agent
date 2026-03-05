@@ -19,6 +19,7 @@ from app.core.logging_config import get_logger
 from app.database.mongodb import get_database
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse, LoginResponse
 from app.utils.validators import Validators
+from app.utils.counter import Counter
 
 logger = get_logger(__name__)
 
@@ -37,6 +38,7 @@ class AuthService:
         """
         self.db = db or get_database()
         self.users_collection = self.db.users
+        self.counter = Counter(self.db)
 
     async def register(self, data: RegisterRequest) -> LoginResponse:
         """
@@ -61,41 +63,55 @@ class AuthService:
             if existing_user:
                 raise UserAlreadyExistsError(f"User with email {email} already exists")
 
-            # Validate company_id if provided
-            if data.company_id:
-                company = await self.db.companies.find_one({"_id": ObjectId(data.company_id)})
-                if not company:
-                    raise ValidationError(
-                        "Invalid company_id",
-                        {"company_id": data.company_id}
-                    )
+            # Validate company_number (required for registration)
+            # Note: Superadmin accounts should be created directly in the database
+            if not data.company_number:
+                raise ValidationError(
+                    "company_number is required for registration. Contact superadmin to get your company number.",
+                    {"company_number": "required"}
+                )
+
+            # Look up company by _id (company_number is the sequential integer ID)
+            company = await self.db.companies.find_one({"_id": data.company_number})
+            if not company:
+                raise ValidationError(
+                    f"Invalid company number: {data.company_number}. Please contact superadmin for a valid company number.",
+                    {"company_number": data.company_number}
+                )
+
+            # Get the actual company ID (integer)
+            company_id = company["_id"]
 
             # Hash password
             hashed_password = get_password_hash(data.password)
 
-            # Determine role (if company_id provided, role is admin, otherwise superadmin)
-            role = "admin" if data.company_id else "superadmin"
+            # Registration always creates admin users (company admins)
+            # Superadmin accounts must be created manually in the database
+            role = "admin"
 
-            # Create user document
+            # Get next user ID from counter
+            user_id = await self.counter.get_next_sequence("user")
+
+            # Create user document with sequential _id
             user_doc = {
+                "_id": user_id,
                 "email": email,
                 "hashed_password": hashed_password,
                 "full_name": data.full_name,
                 "role": role,
-                "company_id": data.company_id,
+                "company_id": company_id,
                 "is_active": True,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
             }
 
             # Insert user
-            result = await self.users_collection.insert_one(user_doc)
-            user_id = str(result.inserted_id)
+            await self.users_collection.insert_one(user_doc)
 
             logger.info(f"User registered successfully: {email} (role={role})")
 
-            # Generate tokens
-            tokens = self._generate_tokens(user_id, email, role)
+            # Generate tokens (convert to string for JWT)
+            tokens = self._generate_tokens(str(user_id), email, role, company_id)
 
             # Build response
             user_response = UserResponse(
@@ -103,7 +119,7 @@ class AuthService:
                 email=email,
                 full_name=data.full_name,
                 role=role,
-                company_id=data.company_id,
+                company_id=company_id,
                 is_active=True,
                 created_at=user_doc["created_at"],
                 updated_at=user_doc["updated_at"]
@@ -147,12 +163,12 @@ class AuthService:
             if not user.get("is_active", True):
                 raise AuthenticationError("User account is inactive")
 
-            user_id = str(user["_id"])
+            user_id = user["_id"]
 
             logger.info(f"User logged in successfully: {email}")
 
-            # Generate tokens
-            tokens = self._generate_tokens(user_id, email, user["role"])
+            # Generate tokens (convert to string for JWT)
+            tokens = self._generate_tokens(str(user_id), email, user["role"], user.get("company_id"))
 
             # Build response
             user_response = UserResponse(
@@ -174,7 +190,7 @@ class AuthService:
             logger.error(f"Error during login: {str(e)}", exc_info=True)
             raise AuthenticationError("Login failed")
 
-    def _generate_tokens(self, user_id: str, email: str, role: str) -> TokenResponse:
+    def _generate_tokens(self, user_id: str, email: str, role: str, company_id: Optional[int] = None) -> TokenResponse:
         """
         Generate access and refresh tokens
 
@@ -182,6 +198,7 @@ class AuthService:
             user_id: User ID
             email: User email
             role: User role
+            company_id: Company ID (optional, for admin users)
 
         Returns:
             Token response
@@ -192,6 +209,10 @@ class AuthService:
             "email": email,
             "role": role
         }
+
+        # Include company_id for admin users
+        if company_id is not None:
+            token_data["company_id"] = company_id
 
         # Generate tokens
         access_token = create_access_token(token_data)
@@ -232,19 +253,20 @@ class AuthService:
             user_id = payload.get("sub")
             email = payload.get("email")
             role = payload.get("role")
+            company_id = payload.get("company_id")
 
             if not user_id or not email or not role:
                 raise InvalidTokenError("Invalid token payload")
 
             # Verify user still exists and is active
-            user = await self.users_collection.find_one({"_id": ObjectId(user_id)})
+            user = await self.users_collection.find_one({"_id": int(user_id)})
             if not user or not user.get("is_active", True):
                 raise InvalidTokenError("User is no longer active")
 
             logger.info(f"Refreshed access token for user: {email}")
 
-            # Generate new tokens
-            return self._generate_tokens(user_id, email, role)
+            # Generate new tokens with company_id from user document (in case it changed)
+            return self._generate_tokens(user_id, email, role, user.get("company_id"))
 
         except InvalidTokenError:
             raise
@@ -266,12 +288,12 @@ class AuthService:
             UserNotFoundError: If user not found
         """
         try:
-            user = await self.users_collection.find_one({"_id": ObjectId(user_id)})
+            user = await self.users_collection.find_one({"_id": int(user_id)})
             if not user:
                 raise UserNotFoundError(f"User not found: {user_id}")
 
             return UserResponse(
-                id=str(user["_id"]),
+                id=user["_id"],
                 email=user["email"],
                 full_name=user["full_name"],
                 role=user["role"],
@@ -307,7 +329,7 @@ class AuthService:
         """
         try:
             # Find user
-            user = await self.users_collection.find_one({"_id": ObjectId(user_id)})
+            user = await self.users_collection.find_one({"_id": int(user_id)})
             if not user:
                 raise UserNotFoundError(f"User not found: {user_id}")
 
@@ -323,7 +345,7 @@ class AuthService:
 
             # Update password
             await self.users_collection.update_one(
-                {"_id": ObjectId(user_id)},
+                {"_id": int(user_id)},
                 {
                     "$set": {
                         "hashed_password": new_hashed_password,

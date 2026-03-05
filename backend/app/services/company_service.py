@@ -24,6 +24,7 @@ from app.schemas.company import (
     CompanyStatsResponse
 )
 from app.utils.validators import Validators
+from app.utils.counter import Counter
 
 logger = get_logger(__name__)
 
@@ -45,6 +46,7 @@ class CompanyService:
         self.users_collection = self.db.users
         self.calls_collection = self.db.calls
         self.agent_configs_collection = self.db.agent_configs
+        self.counter = Counter(self.db)
 
     async def create_company(
         self,
@@ -68,7 +70,7 @@ class CompanyService:
         try:
             # Check authorization - only superadmin can create companies
             if created_by_user_id:
-                creator = await self.users_collection.find_one({"_id": ObjectId(created_by_user_id)})
+                creator = await self.users_collection.find_one({"_id": int(created_by_user_id)})
                 if not creator or creator["role"] != "superadmin":
                     raise AuthorizationError("Only superadmin can create companies")
 
@@ -83,23 +85,33 @@ class CompanyService:
                     {"phone_number": phone_number}
                 )
 
-            # Create company document
+            # Get next company ID from counter
+            company_id = await self.counter.get_next_sequence("company")
+
+            # Create company document with sequential _id
             company_doc = {
+                "_id": company_id,
                 "name": data.name,
                 "phone_number": phone_number,
                 "description": data.description,
                 "industry": data.industry,
-                "status": "active",
+                "status": data.status or "active",
+                "subscription_tier": data.subscription_tier or "free",
+                "ai_provider": data.ai_provider,
+                "stt_provider": data.stt_provider,
+                "tts_provider": data.tts_provider,
+                "max_users": data.max_users,
+                "max_monthly_calls": data.max_monthly_calls,
+                "current_call_count": 0,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
             }
 
             # Insert company
-            result = await self.companies_collection.insert_one(company_doc)
-            company_id = str(result.inserted_id)
+            await self.companies_collection.insert_one(company_doc)
 
             # Create default agent configuration for company
-            await self._create_default_agent_config(company_id)
+            await self._create_default_agent_config(str(company_id))
 
             logger.info(f"Company created: {data.name} (id={company_id}, phone={phone_number})")
 
@@ -109,7 +121,14 @@ class CompanyService:
                 phone_number=phone_number,
                 description=data.description,
                 industry=data.industry,
-                status="active",
+                status=company_doc["status"],
+                subscription_tier=company_doc["subscription_tier"],
+                ai_provider=data.ai_provider,
+                stt_provider=data.stt_provider,
+                tts_provider=data.tts_provider,
+                max_users=data.max_users,
+                max_monthly_calls=data.max_monthly_calls,
+                current_call_count=0,
                 created_at=company_doc["created_at"],
                 updated_at=company_doc["updated_at"],
                 total_calls=0,
@@ -144,10 +163,12 @@ class CompanyService:
             AuthorizationError: If user doesn't have permission
         """
         try:
-            Validators.validate_mongodb_id(company_id, "company_id")
+            # Validate company_id is provided
+            if not company_id:
+                raise ValidationError("company_id is required", {"field": "company_id"})
 
             # Get company
-            company = await self.companies_collection.find_one({"_id": ObjectId(company_id)})
+            company = await self.companies_collection.find_one({"_id": int(company_id)})
             if not company:
                 raise CompanyNotFoundError(f"Company not found: {company_id}")
 
@@ -166,12 +187,20 @@ class CompanyService:
                 })
 
             return CompanyResponse(
-                id=str(company["_id"]),
+                id=company["_id"],
+                company_number=company["_id"],
                 name=company["name"],
                 phone_number=company["phone_number"],
                 description=company.get("description"),
                 industry=company.get("industry"),
                 status=company["status"],
+                subscription_tier=company.get("subscription_tier", "free"),
+                ai_provider=company.get("ai_provider"),
+                stt_provider=company.get("stt_provider"),
+                tts_provider=company.get("tts_provider"),
+                max_users=company.get("max_users"),
+                max_monthly_calls=company.get("max_monthly_calls"),
+                current_call_count=company.get("current_call_count", 0),
                 created_at=company["created_at"],
                 updated_at=company["updated_at"],
                 total_calls=total_calls,
@@ -210,19 +239,27 @@ class CompanyService:
                 raise CompanyNotFoundError(f"Company not found for phone number: {phone_number}")
 
             # Get basic stats
-            total_calls = await self.calls_collection.count_documents({"company_id": str(company["_id"])})
+            total_calls = await self.calls_collection.count_documents({"company_id": company["_id"]})
             total_admins = await self.users_collection.count_documents({
-                "company_id": str(company["_id"]),
+                "company_id": company["_id"],
                 "role": "admin"
             })
 
             return CompanyResponse(
-                id=str(company["_id"]),
+                id=company["_id"],
+                company_number=company["_id"],
                 name=company["name"],
                 phone_number=company["phone_number"],
                 description=company.get("description"),
                 industry=company.get("industry"),
                 status=company["status"],
+                subscription_tier=company.get("subscription_tier", "free"),
+                ai_provider=company.get("ai_provider"),
+                stt_provider=company.get("stt_provider"),
+                tts_provider=company.get("tts_provider"),
+                max_users=company.get("max_users"),
+                max_monthly_calls=company.get("max_monthly_calls"),
+                current_call_count=company.get("current_call_count", 0),
                 created_at=company["created_at"],
                 updated_at=company["updated_at"],
                 total_calls=total_calls,
@@ -258,16 +295,18 @@ class CompanyService:
             AuthorizationError: If user doesn't have permission
         """
         try:
-            Validators.validate_mongodb_id(company_id, "company_id")
+            # Validate company_id is provided
+            if not company_id:
+                raise ValidationError("company_id is required", {"field": "company_id"})
 
             # Get company
-            company = await self.companies_collection.find_one({"_id": ObjectId(company_id)})
+            company = await self.companies_collection.find_one({"_id": int(company_id)})
             if not company:
                 raise CompanyNotFoundError(f"Company not found: {company_id}")
 
             # Check authorization - only superadmin can update companies
             if updating_user_id:
-                updater = await self.users_collection.find_one({"_id": ObjectId(updating_user_id)})
+                updater = await self.users_collection.find_one({"_id": int(updating_user_id)})
                 if not updater or updater["role"] != "superadmin":
                     raise AuthorizationError("Only superadmin can update companies")
 
@@ -282,7 +321,7 @@ class CompanyService:
                 # Check if new phone number already exists (excluding current company)
                 existing = await self.companies_collection.find_one({
                     "phone_number": phone_number,
-                    "_id": {"$ne": ObjectId(company_id)}
+                    "_id": {"$ne": int(company_id)}
                 })
                 if existing:
                     raise ValidationError(
@@ -297,9 +336,30 @@ class CompanyService:
             if data.industry is not None:
                 update_doc["industry"] = data.industry
 
+            if data.status is not None:
+                update_doc["status"] = data.status
+
+            if data.subscription_tier is not None:
+                update_doc["subscription_tier"] = data.subscription_tier
+
+            if data.ai_provider is not None:
+                update_doc["ai_provider"] = data.ai_provider
+
+            if data.stt_provider is not None:
+                update_doc["stt_provider"] = data.stt_provider
+
+            if data.tts_provider is not None:
+                update_doc["tts_provider"] = data.tts_provider
+
+            if data.max_users is not None:
+                update_doc["max_users"] = data.max_users
+
+            if data.max_monthly_calls is not None:
+                update_doc["max_monthly_calls"] = data.max_monthly_calls
+
             # Update company
             await self.companies_collection.update_one(
-                {"_id": ObjectId(company_id)},
+                {"_id": int(company_id)},
                 {"$set": update_doc}
             )
 
@@ -336,22 +396,24 @@ class CompanyService:
             AuthorizationError: If user doesn't have permission
         """
         try:
-            Validators.validate_mongodb_id(company_id, "company_id")
+            # Validate company_id is provided
+            if not company_id:
+                raise ValidationError("company_id is required", {"field": "company_id"})
 
             # Get company
-            company = await self.companies_collection.find_one({"_id": ObjectId(company_id)})
+            company = await self.companies_collection.find_one({"_id": int(company_id)})
             if not company:
                 raise CompanyNotFoundError(f"Company not found: {company_id}")
 
             # Check authorization - only superadmin can update status
             if updating_user_id:
-                updater = await self.users_collection.find_one({"_id": ObjectId(updating_user_id)})
+                updater = await self.users_collection.find_one({"_id": int(updating_user_id)})
                 if not updater or updater["role"] != "superadmin":
                     raise AuthorizationError("Only superadmin can update company status")
 
             # Update status
             await self.companies_collection.update_one(
-                {"_id": ObjectId(company_id)},
+                {"_id": int(company_id)},
                 {
                     "$set": {
                         "status": data.status,
@@ -398,7 +460,7 @@ class CompanyService:
         try:
             # Check authorization - only superadmin can list all companies
             if requesting_user_id:
-                requester = await self.users_collection.find_one({"_id": ObjectId(requesting_user_id)})
+                requester = await self.users_collection.find_one({"_id": int(requesting_user_id)})
                 if not requester or requester["role"] != "superadmin":
                     raise AuthorizationError("Only superadmin can list companies")
 
@@ -425,7 +487,7 @@ class CompanyService:
             # Build response with stats
             company_responses = []
             for company in companies:
-                company_id = str(company["_id"])
+                company_id = company["_id"]
                 total_calls = await self.calls_collection.count_documents({"company_id": company_id})
                 total_admins = await self.users_collection.count_documents({
                     "company_id": company_id,
@@ -435,11 +497,19 @@ class CompanyService:
                 company_responses.append(
                     CompanyResponse(
                         id=company_id,
+                        company_number=company["_id"],
                         name=company["name"],
                         phone_number=company["phone_number"],
                         description=company.get("description"),
                         industry=company.get("industry"),
                         status=company["status"],
+                        subscription_tier=company.get("subscription_tier", "free"),
+                        ai_provider=company.get("ai_provider"),
+                        stt_provider=company.get("stt_provider"),
+                        tts_provider=company.get("tts_provider"),
+                        max_users=company.get("max_users"),
+                        max_monthly_calls=company.get("max_monthly_calls"),
+                        current_call_count=company.get("current_call_count", 0),
                         created_at=company["created_at"],
                         updated_at=company["updated_at"],
                         total_calls=total_calls,
@@ -481,10 +551,12 @@ class CompanyService:
             AuthorizationError: If user doesn't have permission
         """
         try:
-            Validators.validate_mongodb_id(company_id, "company_id")
+            # Validate company_id is provided
+            if not company_id:
+                raise ValidationError("company_id is required", {"field": "company_id"})
 
             # Get company
-            company = await self.companies_collection.find_one({"_id": ObjectId(company_id)})
+            company = await self.companies_collection.find_one({"_id": int(company_id)})
             if not company:
                 raise CompanyNotFoundError(f"Company not found: {company_id}")
 
@@ -595,7 +667,7 @@ class CompanyService:
         Raises:
             AuthorizationError: If not authorized
         """
-        requesting_user = await self.users_collection.find_one({"_id": ObjectId(requesting_user_id)})
+        requesting_user = await self.users_collection.find_one({"_id": int(requesting_user_id)})
         if not requesting_user:
             raise AuthorizationError("Requesting user not found")
 

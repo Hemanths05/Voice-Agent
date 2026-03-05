@@ -86,7 +86,7 @@ class KnowledgeResponse(BaseModel):
     """Response schema for knowledge base entry"""
 
     id: str = Field(..., description="Knowledge entry ID")
-    company_id: str = Field(..., description="Company ID")
+    company_id: int = Field(..., description="Company ID")
     title: str = Field(..., description="Document title")
     description: Optional[str] = Field(None, description="Document description")
     tags: List[str] = Field(default_factory=list, description="Document tags")
@@ -129,7 +129,7 @@ class KnowledgeResponse(BaseModel):
 class KnowledgeListResponse(BaseModel):
     """Response schema for paginated knowledge list"""
 
-    knowledge_entries: List[KnowledgeResponse] = Field(..., description="List of knowledge entries")
+    items: List[KnowledgeResponse] = Field(..., description="List of knowledge entries")
     total: int = Field(..., description="Total number of entries")
     page: int = Field(..., description="Current page number")
     page_size: int = Field(..., description="Number of items per page")
@@ -138,7 +138,7 @@ class KnowledgeListResponse(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "knowledge_entries": [
+                "items": [
                     {
                         "id": "507f1f77bcf86cd799439013",
                         "company_id": "507f1f77bcf86cd799439012",

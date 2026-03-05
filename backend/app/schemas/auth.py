@@ -8,12 +8,12 @@ from datetime import datetime
 
 
 class RegisterRequest(BaseModel):
-    """Request schema for user registration"""
+    """Request schema for user registration (company admin only)"""
 
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., min_length=8, description="User password (min 8 chars)")
     full_name: str = Field(..., min_length=2, max_length=100, description="User full name")
-    company_id: Optional[str] = Field(None, description="Company ID (for admin users)")
+    company_number: int = Field(..., description="Company Number (numeric ID - contact superadmin for your company number)")
 
     @validator('password')
     def validate_password_strength(cls, v):
@@ -32,7 +32,7 @@ class RegisterRequest(BaseModel):
                 "email": "admin@example.com",
                 "password": "SecurePass123",
                 "full_name": "John Doe",
-                "company_id": "507f1f77bcf86cd799439011"
+                "company_number": 1
             }
         }
 
@@ -87,11 +87,11 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     """Response schema for user information"""
 
-    id: str = Field(..., description="User ID")
+    id: int = Field(..., description="User ID (sequential)")
     email: str = Field(..., description="User email")
     full_name: str = Field(..., description="User full name")
     role: str = Field(..., description="User role (superadmin, admin)")
-    company_id: Optional[str] = Field(None, description="Company ID (for admin users)")
+    company_id: Optional[int] = Field(None, description="Company ID (for admin users)")
     is_active: bool = Field(default=True, description="Whether user is active")
     created_at: datetime = Field(..., description="User creation timestamp")
     updated_at: datetime = Field(..., description="User last update timestamp")
@@ -99,11 +99,11 @@ class UserResponse(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "id": "507f1f77bcf86cd799439011",
+                "id": 2,
                 "email": "admin@example.com",
                 "full_name": "John Doe",
                 "role": "admin",
-                "company_id": "507f1f77bcf86cd799439012",
+                "company_id": 1,
                 "is_active": True,
                 "created_at": "2024-01-15T10:30:00Z",
                 "updated_at": "2024-01-15T10:30:00Z"

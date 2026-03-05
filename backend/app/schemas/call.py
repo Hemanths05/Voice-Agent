@@ -35,7 +35,7 @@ class CallCreate(BaseModel):
     """Schema for creating a new call record"""
 
     call_sid: str = Field(..., description="Twilio Call SID")
-    company_id: str = Field(..., description="Company ID")
+    company_id: int = Field(..., description="Company ID")
     from_number: str = Field(..., description="Caller phone number")
     to_number: str = Field(..., description="Twilio phone number called")
     direction: str = Field(default="inbound", description="Call direction")
@@ -110,7 +110,7 @@ class CallResponse(BaseModel):
 
     id: str = Field(..., description="Call record ID")
     call_sid: str = Field(..., description="Twilio Call SID")
-    company_id: str = Field(..., description="Company ID")
+    company_id: int = Field(..., description="Company ID")
     from_number: str = Field(..., description="Caller phone number")
     to_number: str = Field(..., description="Twilio phone number called")
     direction: str = Field(..., description="Call direction")
@@ -151,7 +151,7 @@ class CallResponse(BaseModel):
 class CallListResponse(BaseModel):
     """Response schema for paginated call list"""
 
-    calls: List[CallResponse] = Field(..., description="List of calls")
+    items: List[CallResponse] = Field(..., description="List of calls")
     total: int = Field(..., description="Total number of calls")
     page: int = Field(..., description="Current page number")
     page_size: int = Field(..., description="Number of items per page")
@@ -160,7 +160,7 @@ class CallListResponse(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "calls": [
+                "items": [
                     {
                         "id": "507f1f77bcf86cd799439014",
                         "call_sid": "CA1234567890abcdef",
@@ -185,7 +185,7 @@ class CallListResponse(BaseModel):
 class CallStatsResponse(BaseModel):
     """Response schema for call statistics"""
 
-    company_id: Optional[str] = Field(None, description="Company ID (if filtered)")
+    company_id: Optional[int] = Field(None, description="Company ID (if filtered)")
     total_calls: int = Field(..., description="Total number of calls")
     completed_calls: int = Field(..., description="Number of completed calls")
     failed_calls: int = Field(..., description="Number of failed calls")

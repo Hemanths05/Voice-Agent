@@ -77,8 +77,7 @@ async def list_companies(
         response = await company_service.list_companies(
             page=page,
             page_size=page_size,
-            status_filter=status_filter,
-            search=search
+            status=status_filter
         )
 
         logger.debug(f"Listed {len(response.companies)} companies (page {page})")
@@ -387,7 +386,7 @@ async def list_users(
         response = await user_service.list_users(
             page=page,
             page_size=page_size,
-            role_filter=role_filter,
+            role=role_filter,
             company_id=company_id
         )
 
@@ -482,7 +481,7 @@ async def update_user(
         response = await user_service.update_user(
             user_id=user_id,
             data=data,
-            updating_user_id=current_user["id"]
+            updating_user_id=current_user.get("user_id")
         )
 
         logger.info(f"User updated: {user_id}")
@@ -537,7 +536,7 @@ async def delete_user(
     """
     try:
         # Prevent self-deletion
-        if user_id == current_user["id"]:
+        if user_id == current_user.get("user_id"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot delete your own account"
@@ -546,7 +545,7 @@ async def delete_user(
         user_service = UserService()
         await user_service.delete_user(
             user_id=user_id,
-            deleting_user_id=current_user["id"]
+            deleting_user_id=current_user.get("user_id")
         )
 
         logger.info(f"User deleted: {user_id}")
@@ -650,6 +649,117 @@ async def get_global_analytics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve global analytics"
+        )
+
+
+@router.get(
+    "/analytics",
+    summary="Get superadmin analytics",
+    description="Get analytics for superadmin dashboard"
+)
+async def get_analytics(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get superadmin analytics
+
+    Returns basic statistics about the platform
+    """
+    try:
+        require_role(current_user, "superadmin")
+
+        company_service = CompanyService()
+        user_service = UserService()
+
+        # Get counts
+        companies = await company_service.list_companies(page=1, page_size=1)
+        users = await user_service.list_users(page=1, page_size=1)
+
+        # Count active companies
+        all_companies = await company_service.list_companies(page=1, page_size=1000)
+        active_companies = len([c for c in all_companies.companies if c.status == "active"])
+        suspended_companies = len([c for c in all_companies.companies if c.status == "suspended"])
+
+        return {
+            "total_companies": companies.total,
+            "active_companies": active_companies,
+            "suspended_companies": suspended_companies,
+            "total_users": users.total,
+            "total_calls_all_companies": 0,
+            "active_calls_all_companies": 0,
+            "total_subscriptions_revenue": 0
+        }
+    except Exception as e:
+        logger.error(f"Failed to get analytics: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve analytics"
+        )
+
+
+@router.get(
+    "/analytics/calls-by-status",
+    summary="Get calls by status",
+    description="Get call statistics grouped by status"
+)
+async def get_calls_by_status(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get calls grouped by status
+
+    Returns mock data since call functionality is not implemented yet
+    """
+    try:
+        require_role(current_user, "superadmin")
+
+        # Return mock data for now
+        return [
+            {"status": "completed", "count": 0},
+            {"status": "in_progress", "count": 0},
+            {"status": "failed", "count": 0},
+            {"status": "no_answer", "count": 0}
+        ]
+    except Exception as e:
+        logger.error(f"Failed to get calls by status: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve calls by status"
+        )
+
+
+@router.get(
+    "/analytics/calls-by-day",
+    summary="Get calls by day",
+    description="Get call statistics grouped by day"
+)
+async def get_calls_by_day(
+    days: int = Query(default=30, ge=1, le=365),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get calls grouped by day
+
+    Returns mock data since call functionality is not implemented yet
+    """
+    try:
+        require_role(current_user, "superadmin")
+
+        # Return mock data for now
+        from datetime import datetime, timedelta
+        result = []
+        today = datetime.utcnow()
+
+        for i in range(days):
+            date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
+            result.append({"date": date, "count": 0})
+
+        return list(reversed(result))
+    except Exception as e:
+        logger.error(f"Failed to get calls by day: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve calls by day"
         )
 
 

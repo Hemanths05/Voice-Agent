@@ -118,7 +118,7 @@ class AgentConfigResponse(BaseModel):
     """Response schema for agent configuration"""
 
     id: str = Field(..., description="Configuration ID")
-    company_id: str = Field(..., description="Company ID")
+    company_id: int = Field(..., description="Company ID")
 
     # AI Provider selection
     stt_provider: str = Field(..., description="STT provider")
