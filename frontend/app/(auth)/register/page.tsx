@@ -21,7 +21,7 @@ const registerSchema = z.object({
     .regex(/[a-z]/, "Must contain at least one lowercase letter")
     .regex(/[0-9]/, "Must contain at least one digit"),
   full_name: z.string().min(2, "Name must be at least 2 characters"),
-  company_number: z.coerce.number().min(1, "Company Number is required"),
+  company_number: z.coerce.number({ invalid_type_error: "Company Number is required" }).min(1, "Company Number is required").pipe(z.number()),
 });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
