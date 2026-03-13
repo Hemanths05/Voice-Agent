@@ -37,7 +37,7 @@ export default function RegisterPage() {
     handleSubmit,
     formState: { errors },
   } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerSchema) as any,
   });
 
   const onSubmit = async (data: RegisterFormData) => {

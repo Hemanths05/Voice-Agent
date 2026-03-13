@@ -62,7 +62,7 @@ export function CompanyDialog({ open, onOpenChange, company, onSuccess }: Compan
     watch,
     reset,
   } = useForm<CompanyFormData>({
-    resolver: zodResolver(companySchema),
+    resolver: zodResolver(companySchema) as any,
     defaultValues: {},
   });
 

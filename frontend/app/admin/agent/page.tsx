@@ -50,7 +50,7 @@ export default function AgentConfigPage() {
     setValue,
     watch,
   } = useForm<AgentConfigFormData>({
-    resolver: zodResolver(agentConfigSchema),
+    resolver: zodResolver(agentConfigSchema) as any,
     values: config
       ? {
           agent_name: config.agent_name,
