@@ -52,7 +52,7 @@ class CompanyCreate(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "Acme Corporation",
                 "phone_number": "+15551234567",
@@ -114,7 +114,7 @@ class CompanyUpdate(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "Acme Corporation Inc.",
                 "description": "Updated description",
@@ -137,7 +137,7 @@ class CompanyStatusUpdate(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "status": "active"
             }
@@ -171,7 +171,7 @@ class CompanyResponse(BaseModel):
     total_admins: Optional[int] = Field(None, description="Total number of admin users")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "name": "Acme Corporation",
@@ -204,7 +204,7 @@ class CompanyListResponse(BaseModel):
     total_pages: int = Field(..., description="Total number of pages")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "companies": [
                     {
@@ -241,7 +241,7 @@ class CompanyStatsResponse(BaseModel):
     last_call_at: Optional[datetime] = Field(None, description="Timestamp of last call")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "company_id": "507f1f77bcf86cd799439012",
                 "total_calls": 1250,

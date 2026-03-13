@@ -99,7 +99,7 @@ class AgentConfigUpdate(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "llm_provider": "groq",
                 "llm_model": "llama-3.3-70b-versatile",
@@ -163,7 +163,7 @@ class AgentConfigResponse(BaseModel):
     updated_at: datetime = Field(..., description="Last update timestamp")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": "507f1f77bcf86cd799439015",
                 "company_id": "507f1f77bcf86cd799439012",
@@ -202,7 +202,7 @@ class AgentTestRequest(BaseModel):
     include_rag: bool = Field(default=True, description="Test with RAG enabled")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "test_message": "What are your business hours?",
                 "include_rag": True
@@ -220,7 +220,7 @@ class AgentTestResponse(BaseModel):
     providers_used: Dict[str, str] = Field(..., description="Providers used for test")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "test_message": "What are your business hours?",
                 "agent_response": "Our business hours are Monday through Friday, 9 AM to 5 PM.",

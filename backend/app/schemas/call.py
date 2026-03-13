@@ -22,7 +22,7 @@ class CallTranscriptMessage(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "role": "user",
                 "content": "Hello, I need help with my account",
@@ -48,7 +48,7 @@ class CallCreate(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "call_sid": "CA1234567890abcdef1234567890abcd",
                 "company_id": "507f1f77bcf86cd799439012",
@@ -85,7 +85,7 @@ class CallUpdate(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "status": "completed",
                 "duration": 125.5,
@@ -123,7 +123,7 @@ class CallResponse(BaseModel):
     updated_at: datetime = Field(..., description="Last update timestamp")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": "507f1f77bcf86cd799439014",
                 "call_sid": "CA1234567890abcdef1234567890abcd",
@@ -158,7 +158,7 @@ class CallListResponse(BaseModel):
     total_pages: int = Field(..., description="Total number of pages")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "items": [
                     {
@@ -197,7 +197,7 @@ class CallStatsResponse(BaseModel):
     calls_this_month: int = Field(..., description="Number of calls this month")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "company_id": "507f1f77bcf86cd799439012",
                 "total_calls": 1250,
@@ -241,7 +241,7 @@ class CallFilterParams(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "status": "completed",
                 "direction": "inbound",

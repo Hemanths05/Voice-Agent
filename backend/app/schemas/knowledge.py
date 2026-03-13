@@ -25,7 +25,7 @@ class KnowledgeUploadRequest(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "title": "Product FAQ Document",
                 "description": "Frequently asked questions about our products",
@@ -52,7 +52,7 @@ class KnowledgeUpdateRequest(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "title": "Updated Product FAQ",
                 "tags": ["faq", "products", "support", "updated"]
@@ -69,7 +69,7 @@ class KnowledgeChunkResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(None, description="Chunk metadata")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "chunk_index": 0,
                 "text": "Our product offers industry-leading features including...",
@@ -108,7 +108,7 @@ class KnowledgeResponse(BaseModel):
     chunks: Optional[List[KnowledgeChunkResponse]] = Field(None, description="Document chunks")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": "507f1f77bcf86cd799439013",
                 "company_id": "507f1f77bcf86cd799439012",
@@ -136,7 +136,7 @@ class KnowledgeListResponse(BaseModel):
     total_pages: int = Field(..., description="Total number of pages")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "items": [
                     {
@@ -176,7 +176,7 @@ class KnowledgeSearchRequest(BaseModel):
     tags: Optional[List[str]] = Field(None, description="Filter by tags")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "query": "How do I reset my password?",
                 "top_k": 5,
@@ -194,7 +194,7 @@ class KnowledgeSearchResult(BaseModel):
     chunk: KnowledgeChunkResponse = Field(..., description="Matched chunk")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "knowledge_id": "507f1f77bcf86cd799439013",
                 "title": "Product FAQ",
@@ -216,7 +216,7 @@ class KnowledgeSearchResponse(BaseModel):
     total_results: int = Field(..., description="Number of results returned")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "query": "How do I reset my password?",
                 "results": [
@@ -243,7 +243,7 @@ class KnowledgeUploadResponse(BaseModel):
     message: str = Field(..., description="Success message")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "knowledge": {
                     "id": "507f1f77bcf86cd799439013",

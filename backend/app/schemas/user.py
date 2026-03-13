@@ -32,7 +32,7 @@ class UserCreate(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "email": "newadmin@example.com",
                 "password": "SecurePass123",
@@ -61,7 +61,7 @@ class UserUpdate(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "full_name": "Jane Doe",
                 "is_active": True
@@ -82,7 +82,7 @@ class UserResponse(BaseModel):
     updated_at: datetime = Field(..., description="Last update timestamp")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": "507f1f77bcf86cd799439011",
                 "email": "admin@example.com",
@@ -106,7 +106,7 @@ class UserListResponse(BaseModel):
     total_pages: int = Field(..., description="Total number of pages")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "users": [
                     {

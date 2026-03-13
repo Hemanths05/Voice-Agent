@@ -27,7 +27,7 @@ class RegisterRequest(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "email": "admin@example.com",
                 "password": "SecurePass123",
@@ -44,7 +44,7 @@ class LoginRequest(BaseModel):
     password: str = Field(..., description="User password")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "email": "admin@example.com",
                 "password": "SecurePass123"
@@ -58,7 +58,7 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str = Field(..., description="Refresh token")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
             }
@@ -74,7 +74,7 @@ class TokenResponse(BaseModel):
     expires_in: int = Field(..., description="Token expiration time in seconds")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                 "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -97,7 +97,7 @@ class UserResponse(BaseModel):
     updated_at: datetime = Field(..., description="User last update timestamp")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": 2,
                 "email": "admin@example.com",
@@ -118,7 +118,7 @@ class LoginResponse(BaseModel):
     tokens: TokenResponse = Field(..., description="Authentication tokens")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "user": {
                     "id": "507f1f77bcf86cd799439011",
@@ -158,7 +158,7 @@ class ChangePasswordRequest(BaseModel):
         return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "current_password": "OldPass123",
                 "new_password": "NewSecurePass456"
