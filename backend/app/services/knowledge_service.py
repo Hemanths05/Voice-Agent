@@ -8,6 +8,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
 import math
 import asyncio
+import uuid
 
 from app.core.exceptions import (
     KnowledgeNotFoundError,
@@ -183,7 +184,7 @@ class KnowledgeService:
             # Prepare vector points
             vector_points = []
             for idx, (chunk, embedding) in enumerate(zip(chunks, all_embeddings)):
-                point_id = f"{knowledge_id}_{idx}"
+                point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{knowledge_id}_{idx}"))
 
                 vector_points.append({
                     "id": point_id,
@@ -202,7 +203,10 @@ class KnowledgeService:
                 })
 
             # Upsert to Qdrant
-            await upsert_vectors(vector_points, company_id)
+            point_ids = [vp["id"] for vp in vector_points]
+            point_vectors = [vp["vector"] for vp in vector_points]
+            point_payloads = [vp["payload"] for vp in vector_points]
+            await upsert_vectors(point_vectors, point_payloads, ids=point_ids)
 
             logger.info(f"Knowledge upload complete: {knowledge_id} ({len(chunks)} chunks)")
 

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/hemanths/Desktop/Projects/voice_agent/backend/venv/bin/python -c \":*)",
+      "Bash(curl -s \"https://generativelanguage.googleapis.com/v1beta/models?key=AIzaSyD1gJSZGYPqclgyjX3_HGklOeiiOVvv-fos\")"
+    ]
+  }
+}

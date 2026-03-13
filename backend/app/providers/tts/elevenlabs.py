@@ -22,7 +22,7 @@ class ElevenLabsTTS(TTSBase):
         self,
         api_key: str,
         model: str = "eleven_monolingual_v1",
-        voice_id: str = "21m00Tcm4TlvDq8ikWAM",  # Default voice (Rachel)
+        voice_id: str = "XFyHddC2zKKgLBooDuhH",  # Default voice (Rachel)
         language: Optional[str] = None,
         **kwargs
     ):

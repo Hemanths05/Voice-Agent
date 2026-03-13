@@ -20,6 +20,7 @@ from app.schemas.user import (
 )
 from app.services.company_service import CompanyService
 from app.services.user_service import UserService
+from app.services.call_service import CallService
 from app.core.dependencies import get_current_user, require_role
 from app.core.exceptions import (
     ValidationError,
@@ -618,8 +619,18 @@ async def get_global_analytics(
         superadmins = len([u for u in all_users.users if u.role == "superadmin"])
         admins = len([u for u in all_users.users if u.role == "admin"])
 
-        # TODO: Add call statistics from CallService
-        # This would require aggregating calls across all companies
+        # Get call statistics from database
+        call_service = CallService()
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        today_start = datetime(now.year, now.month, now.day)
+        week_start = today_start - timedelta(days=today_start.weekday())
+        month_start = datetime(now.year, now.month, 1)
+
+        total_calls = await call_service.calls_collection.count_documents({})
+        calls_today = await call_service.calls_collection.count_documents({"created_at": {"$gte": today_start}})
+        calls_this_week = await call_service.calls_collection.count_documents({"created_at": {"$gte": week_start}})
+        calls_this_month = await call_service.calls_collection.count_documents({"created_at": {"$gte": month_start}})
 
         analytics = {
             "companies": {
@@ -634,10 +645,10 @@ async def get_global_analytics(
                 "admins": admins
             },
             "calls": {
-                "total": 0,  # TODO: Implement
-                "today": 0,
-                "this_week": 0,
-                "this_month": 0
+                "total": total_calls,
+                "today": calls_today,
+                "this_week": calls_this_week,
+                "this_month": calls_this_month
             }
         }
 
@@ -670,6 +681,7 @@ async def get_analytics(
 
         company_service = CompanyService()
         user_service = UserService()
+        call_service = CallService()
 
         # Get counts
         companies = await company_service.list_companies(page=1, page_size=1)
@@ -680,13 +692,19 @@ async def get_analytics(
         active_companies = len([c for c in all_companies.companies if c.status == "active"])
         suspended_companies = len([c for c in all_companies.companies if c.status == "suspended"])
 
+        # Get call counts from database
+        total_calls = await call_service.calls_collection.count_documents({})
+        active_calls = await call_service.calls_collection.count_documents({
+            "status": {"$in": ["initiated", "ringing", "in_progress", "in-progress"]}
+        })
+
         return {
             "total_companies": companies.total,
             "active_companies": active_companies,
             "suspended_companies": suspended_companies,
             "total_users": users.total,
-            "total_calls_all_companies": 0,
-            "active_calls_all_companies": 0,
+            "total_calls_all_companies": total_calls,
+            "active_calls_all_companies": active_calls,
             "total_subscriptions_revenue": 0
         }
     except Exception as e:
@@ -707,19 +725,33 @@ async def get_calls_by_status(
 ):
     """
     Get calls grouped by status
-
-    Returns mock data since call functionality is not implemented yet
     """
     try:
         require_role(current_user, "superadmin")
 
-        # Return mock data for now
-        return [
-            {"status": "completed", "count": 0},
-            {"status": "in_progress", "count": 0},
-            {"status": "failed", "count": 0},
-            {"status": "no_answer", "count": 0}
+        call_service = CallService()
+
+        # Aggregate calls by status across all companies
+        pipeline = [
+            {"$group": {"_id": "$status", "count": {"$sum": 1}}}
         ]
+        results = await call_service.calls_collection.aggregate(pipeline).to_list(length=100)
+
+        # Convert to expected format
+        status_counts = {r["_id"]: r["count"] for r in results if r["_id"]}
+
+        # Return all statuses, defaulting to 0 for those not present
+        all_statuses = ["completed", "in_progress", "in-progress", "initiated", "ringing", "failed", "no_answer", "no-answer", "busy", "canceled"]
+        response = []
+        seen = set()
+        for s in all_statuses:
+            count = status_counts.get(s, 0)
+            if count > 0 or s in ("completed", "in_progress", "failed", "no_answer"):
+                if s not in seen:
+                    response.append({"status": s, "count": count})
+                    seen.add(s)
+
+        return response
     except Exception as e:
         logger.error(f"Failed to get calls by status: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -739,22 +771,35 @@ async def get_calls_by_day(
 ):
     """
     Get calls grouped by day
-
-    Returns mock data since call functionality is not implemented yet
     """
     try:
         require_role(current_user, "superadmin")
 
-        # Return mock data for now
         from datetime import datetime, timedelta
-        result = []
+
+        call_service = CallService()
         today = datetime.utcnow()
+        start_date = today - timedelta(days=days)
 
+        # Aggregate calls by day across all companies
+        pipeline = [
+            {"$match": {"created_at": {"$gte": start_date}}},
+            {"$group": {
+                "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                "count": {"$sum": 1}
+            }},
+            {"$sort": {"_id": 1}}
+        ]
+        results = await call_service.calls_collection.aggregate(pipeline).to_list(length=days)
+        day_counts = {r["_id"]: r["count"] for r in results}
+
+        # Fill in all days (including days with 0 calls)
+        result = []
         for i in range(days):
-            date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-            result.append({"date": date, "count": 0})
+            date = (today - timedelta(days=days - 1 - i)).strftime("%Y-%m-%d")
+            result.append({"date": date, "count": day_counts.get(date, 0)})
 
-        return list(reversed(result))
+        return result
     except Exception as e:
         logger.error(f"Failed to get calls by day: {str(e)}", exc_info=True)
         raise HTTPException(

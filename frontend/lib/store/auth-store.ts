@@ -63,26 +63,12 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "auth-storage",
-      // Persist user, tokens, and auth status
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
-      onRehydrateStorage: () => (state) => {
-        // After rehydration, also sync with localStorage tokens
-        if (state && typeof window !== "undefined") {
-          const accessToken = localStorage.getItem("access_token");
-          const refreshToken = localStorage.getItem("refresh_token");
-
-          // If tokens exist in localStorage but not in state, restore them
-          if (accessToken && refreshToken && !state.accessToken) {
-            state.accessToken = accessToken;
-            state.refreshToken = refreshToken;
-          }
-        }
-      },
     }
   )
 );

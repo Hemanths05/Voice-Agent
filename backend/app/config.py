@@ -96,7 +96,7 @@ class Settings(BaseSettings):
     gemini_llm_model: str = Field(default="gemini-2.0-flash-exp")
 
     # TTS Models/Voices
-    elevenlabs_voice_id: str = Field(default="21m00Tcm4TlvDq8ikWAM")
+    elevenlabs_voice_id: str = Field(default="XFyHddC2zKKgLBooDuhH")
     elevenlabs_model_id: str = Field(default="eleven_monolingual_v1")
     openai_tts_model: str = Field(default="tts-1")
     openai_tts_voice: str = Field(default="alloy")
@@ -107,7 +107,7 @@ class Settings(BaseSettings):
     openai_embeddings_model: str = Field(default="text-embedding-ada-002")
     voyage_embeddings_model: str = Field(default="voyage-2")
     cohere_embeddings_model: str = Field(default="embed-english-v3.0")
-    gemini_embeddings_model: str = Field(default="embedding-001")
+    gemini_embeddings_model: str = Field(default="models/text-embedding-004")
 
     # ==================== AGENT DEFAULT SETTINGS ====================
     default_system_prompt: str = Field(

@@ -188,7 +188,7 @@ export default function AgentConfigPage() {
                         <textarea
                           id="system_prompt"
                           {...register("system_prompt")}
-                          className="w-full min-h-[200px] px-3 py-2 border rounded-md"
+                          className="w-full min-h-[200px] px-3 py-2.5 rounded-lg border border-input bg-background text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 resize-y disabled:opacity-50"
                           placeholder="You are a helpful AI assistant..."
                           disabled={updateMutation.isPending}
                         />

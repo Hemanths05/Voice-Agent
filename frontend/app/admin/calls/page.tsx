@@ -83,14 +83,14 @@ export default function CallsPage() {
           </div>
 
           {/* Filters */}
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-3 mb-6">
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search calls..." className="pl-9" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search calls…" className="pl-9 h-9" />
             </div>
 
             <select
-              className="px-4 py-2 border rounded-md"
+              className="h-9 px-3 rounded-lg border border-input bg-background text-sm font-medium text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -150,7 +150,7 @@ export default function CallsPage() {
                         <TableCell>{call.from_number}</TableCell>
                         <TableCell>{call.to_number}</TableCell>
                         <TableCell>{getStatusBadge(call.status)}</TableCell>
-                        <TableCell>{formatDuration(call.duration_seconds)}</TableCell>
+                        <TableCell>{formatDuration(call.duration)}</TableCell>
                         <TableCell className="capitalize">{call.direction}</TableCell>
                         <TableCell>
                           {new Date(call.created_at).toLocaleString()}
@@ -171,10 +171,10 @@ export default function CallsPage() {
               </Table>
 
               {/* Pagination */}
-              {data && data.pages > 1 && (
+              {data && data.total_pages > 1 && (
                 <div className="flex items-center justify-between mt-4">
                   <p className="text-sm text-muted-foreground">
-                    Page {page} of {data.pages}
+                    Page {page} of {data.total_pages}
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -189,7 +189,7 @@ export default function CallsPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setPage((p) => p + 1)}
-                      disabled={page >= data.pages}
+                      disabled={page >= data.total_pages}
                     >
                       Next
                     </Button>
@@ -231,38 +231,56 @@ export default function CallsPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Duration</p>
-                    <p>{formatDuration(selectedCall.duration_seconds)}</p>
+                    <p>{formatDuration(selectedCall.duration)}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Direction</p>
                     <p className="capitalize">{selectedCall.direction}</p>
                   </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Created</p>
+                    <p className="text-sm">{new Date(selectedCall.created_at).toLocaleString()}</p>
+                  </div>
                 </div>
 
-                {selectedCall.transcript && (
+                {selectedCall.transcript && selectedCall.transcript.length > 0 && (
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-2">
-                      Transcript
+                      Transcript ({selectedCall.transcript.length} messages)
                     </p>
-                    <div className="bg-muted p-4 rounded-md">
-                      <p className="text-sm">{selectedCall.transcript}</p>
+                    <div className="bg-muted rounded-md p-4 max-h-80 overflow-y-auto space-y-3">
+                      {selectedCall.transcript.map((msg, idx) => (
+                        <div
+                          key={idx}
+                          className={`flex flex-col ${msg.role === "assistant" ? "items-start" : "items-end"}`}
+                        >
+                          <span className="text-xs font-medium text-muted-foreground mb-0.5 capitalize">
+                            {msg.role}
+                          </span>
+                          <div
+                            className={`rounded-lg px-3 py-2 max-w-[85%] text-sm ${
+                              msg.role === "assistant"
+                                ? "bg-background border"
+                                : "bg-primary text-primary-foreground"
+                            }`}
+                          >
+                            {msg.content}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground mt-0.5">
+                            {new Date(msg.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
 
-                {selectedCall.summary && (
+                {selectedCall.error_message && (
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-2">Summary</p>
-                    <div className="bg-muted p-4 rounded-md">
-                      <p className="text-sm">{selectedCall.summary}</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Error</p>
+                    <div className="bg-destructive/10 text-destructive p-4 rounded-md">
+                      <p className="text-sm">{selectedCall.error_message}</p>
                     </div>
-                  </div>
-                )}
-
-                {selectedCall.sentiment && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Sentiment</p>
-                    <Badge>{selectedCall.sentiment}</Badge>
                   </div>
                 )}
               </div>

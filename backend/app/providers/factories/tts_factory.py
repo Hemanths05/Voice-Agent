@@ -5,8 +5,8 @@ Creates TTS provider instances based on configuration
 from typing import Optional
 from app.providers.base.tts_base import TTSBase
 from app.providers.tts.elevenlabs import ElevenLabsTTS
+from app.providers.tts.google_tts import GoogleTTS
 # from app.providers.tts.openai_tts import OpenAITTS  # TODO: Phase 8
-# from app.providers.tts.google_tts import GoogleTTS  # TODO: Phase 8
 # from app.providers.tts.azure_tts import AzureTTS  # TODO: Phase 8
 from app.core.exceptions import ProviderNotFoundError, ProviderAPIKeyMissingError
 from app.config import get_provider_api_key, get_provider_model
@@ -23,8 +23,8 @@ class TTSFactory:
     # Registry of available TTS providers
     _providers = {
         "elevenlabs": ElevenLabsTTS,
+        "google": GoogleTTS,
         # "openai": OpenAITTS,  # TODO: Phase 8
-        # "google": GoogleTTS,  # TODO: Phase 8
         # "azure": AzureTTS,  # TODO: Phase 8
     }
 

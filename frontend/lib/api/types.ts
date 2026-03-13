@@ -101,18 +101,24 @@ export interface CompanyListResponse {
 // Call Types
 // ============================================================================
 
+export interface CallTranscriptMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+}
+
 export interface Call {
   id: string;
   company_id: string;
   call_sid: string;
   from_number: string;
   to_number: string;
-  status: "queued" | "in_progress" | "completed" | "failed" | "no_answer";
+  status: "initiated" | "queued" | "in_progress" | "completed" | "failed" | "no_answer";
   direction: "inbound" | "outbound";
-  duration_seconds?: number;
-  transcript?: string;
-  summary?: string;
-  sentiment?: string;
+  duration?: number;
+  transcript?: CallTranscriptMessage[];
+  error_message?: string;
+  metadata?: Record<string, any>;
   recording_url?: string;
   created_at: string;
   updated_at: string;
@@ -123,7 +129,7 @@ export interface CallListResponse {
   total: number;
   page: number;
   page_size: number;
-  pages: number;
+  total_pages: number;
 }
 
 // ============================================================================

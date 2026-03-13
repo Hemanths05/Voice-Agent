@@ -27,7 +27,7 @@ class AgentConfigBase(BaseModel):
         default="elevenlabs",
         pattern="^(elevenlabs|openai|google|azure)$"
     )
-    voice_id: Optional[str] = Field(default="21m00Tcm4TlvDq8ikWAM")  # ElevenLabs default
+    voice_id: Optional[str] = Field(default="XFyHddC2zKKgLBooDuhH")  # ElevenLabs default
     embedding_provider: str = Field(
         default="openai",
         pattern="^(openai|voyage|cohere|gemini)$"

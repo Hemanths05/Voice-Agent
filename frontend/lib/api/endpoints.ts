@@ -96,11 +96,11 @@ export const superAdminAPI = {
 
   // User Management
   listUsers: async (params?: PaginationParams): Promise<{ items: User[]; total: number }> => {
-    const response = await apiClient.get<{ items: User[]; total: number }>(
+    const response = await apiClient.get<{ users: User[]; total: number }>(
       "/api/superadmin/users",
       { params }
     );
-    return response.data;
+    return { items: response.data.users, total: response.data.total };
   },
 
   getUser: async (userId: number): Promise<User> => {

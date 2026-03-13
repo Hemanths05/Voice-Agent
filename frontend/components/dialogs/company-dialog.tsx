@@ -4,6 +4,7 @@
 
 "use client";
 
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -62,8 +63,13 @@ export function CompanyDialog({ open, onOpenChange, company, onSuccess }: Compan
     reset,
   } = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
-    defaultValues: company
-      ? {
+    defaultValues: {},
+  });
+
+  useEffect(() => {
+    if (open) {
+      if (company) {
+        reset({
           name: company.name,
           phone_number: company.phone_number,
           status: company.status,
@@ -73,9 +79,12 @@ export function CompanyDialog({ open, onOpenChange, company, onSuccess }: Compan
           tts_provider: company.tts_provider,
           max_users: company.max_users,
           max_monthly_calls: company.max_monthly_calls,
-        }
-      : {},
-  });
+        });
+      } else {
+        reset({});
+      }
+    }
+  }, [company, open, reset]);
 
   const createMutation = useMutation({
     mutationFn: (data: CompanyCreate) => superAdminAPI.createCompany(data),

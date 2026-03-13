@@ -178,7 +178,7 @@ class AgentConfigResponse(BaseModel):
                 "temperature": 0.7,
                 "max_tokens": 150,
                 "top_p": 1.0,
-                "voice_id": "21m00Tcm4TlvDq8ikWAM",
+                "voice_id": "XFyHddC2zKKgLBooDuhH",
                 "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
                 "system_prompt": "You are a helpful customer support agent.",
                 "greeting_message": "Hello! How can I help you today?",

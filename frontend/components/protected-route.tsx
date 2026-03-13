@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth-store";
 
@@ -15,9 +15,17 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const router = useRouter();
+  const [hydrated, setHydrated] = useState(false);
   const { isAuthenticated, user } = useAuthStore();
 
+  // Wait for Zustand persist to rehydrate from localStorage
   useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+
     if (!isAuthenticated) {
       router.push("/login");
       return;
@@ -32,9 +40,9 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
         router.push("/admin");
       }
     }
-  }, [isAuthenticated, user, requiredRole, router]);
+  }, [hydrated, isAuthenticated, user, requiredRole, router]);
 
-  if (!isAuthenticated || (requiredRole && user?.role !== requiredRole)) {
+  if (!hydrated || !isAuthenticated || (requiredRole && user?.role !== requiredRole)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

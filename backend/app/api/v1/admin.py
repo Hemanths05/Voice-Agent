@@ -22,7 +22,7 @@ from app.schemas.agent import (
     AgentConfigUpdate,
     AgentConfigResponse
 )
-from app.schemas.company import CompanyStatsResponse
+from app.schemas.company import CompanyStatsResponse, DashboardMetricsResponse
 from app.services.call_service import CallService
 from app.services.knowledge_service import KnowledgeService
 from app.services.agent_service import AgentService
@@ -53,21 +53,21 @@ router = APIRouter(
 
 @router.get(
     "/dashboard",
-    response_model=CompanyStatsResponse,
+    response_model=DashboardMetricsResponse,
     summary="Get company dashboard",
-    description="Get dashboard statistics for the admin's company"
+    description="Get dashboard metrics for the admin's company"
 )
 async def get_dashboard(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Get dashboard statistics for admin's company
+    Get dashboard metrics for admin's company
 
     Args:
         current_user: Current authenticated user (must be admin)
 
     Returns:
-        CompanyStatsResponse with company statistics
+        DashboardMetricsResponse with dashboard metrics
 
     Raises:
         HTTPException 403: If user is not admin or has no company
@@ -82,7 +82,7 @@ async def get_dashboard(
             )
 
         company_service = CompanyService()
-        response = await company_service.get_company_stats(company_id)
+        response = await company_service.get_dashboard_metrics(company_id)
 
         logger.debug(f"Dashboard retrieved for company: {company_id}")
         return response
@@ -349,7 +349,7 @@ async def upload_knowledge(
             uploaded_by_user_id=current_user.get("user_id")
         )
 
-        logger.info(f"Knowledge uploaded: {title} (ID: {response.knowledge_id})")
+        logger.info(f"Knowledge uploaded: {title} (ID: {response.knowledge.id})")
         return response
 
     except ValidationError as e:
@@ -460,6 +460,7 @@ async def delete_knowledge(
         knowledge_service = KnowledgeService()
         await knowledge_service.delete_knowledge(
             knowledge_id=knowledge_id,
+            company_id=current_user.get("company_id"),
             deleting_user_id=current_user.get("user_id")
         )
 

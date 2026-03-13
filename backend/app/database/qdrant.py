@@ -115,14 +115,19 @@ async def create_collection_if_not_exists() -> None:
 
         logger.info(f"✓ Created Qdrant collection: {collection_name}")
 
-        # Create payload index for company_id filtering
+        # Create payload indexes for filtering
         await client.create_payload_index(
             collection_name=collection_name,
             field_name="company_id",
+            field_schema="integer",
+        )
+        await client.create_payload_index(
+            collection_name=collection_name,
+            field_name="knowledge_id",
             field_schema="keyword",
         )
 
-        logger.info(f"✓ Created payload index for company_id")
+        logger.info(f"✓ Created payload indexes for company_id and knowledge_id")
 
     except Exception as e:
         logger.error(f"Failed to create collection: {str(e)}", exc_info=True)

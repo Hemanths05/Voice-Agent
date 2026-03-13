@@ -255,6 +255,19 @@ class CompanyStatsResponse(BaseModel):
         }
 
 
+class DashboardMetricsResponse(BaseModel):
+    """Response schema for admin dashboard metrics"""
+
+    total_calls: int = Field(0, description="Total number of calls")
+    active_calls: int = Field(0, description="Number of currently active/in-progress calls")
+    completed_calls: int = Field(0, description="Number of completed calls")
+    failed_calls: int = Field(0, description="Number of failed calls")
+    total_duration_minutes: float = Field(0, description="Total call duration in minutes")
+    avg_call_duration_seconds: float = Field(0, description="Average call duration in seconds")
+    knowledge_docs_count: int = Field(0, description="Number of knowledge base documents")
+    knowledge_chunks_count: int = Field(0, description="Total number of indexed knowledge chunks")
+
+
 # Export schemas
 __all__ = [
     "CompanyCreate",
@@ -262,5 +275,6 @@ __all__ = [
     "CompanyStatusUpdate",
     "CompanyResponse",
     "CompanyListResponse",
-    "CompanyStatsResponse"
+    "CompanyStatsResponse",
+    "DashboardMetricsResponse"
 ]

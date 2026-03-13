@@ -21,7 +21,8 @@ from app.schemas.company import (
     CompanyStatusUpdate,
     CompanyResponse,
     CompanyListResponse,
-    CompanyStatsResponse
+    CompanyStatsResponse,
+    DashboardMetricsResponse
 )
 from app.utils.validators import Validators
 from app.utils.counter import Counter
@@ -614,6 +615,98 @@ class CompanyService:
             raise
         except Exception as e:
             logger.error(f"Error getting company stats: {str(e)}", exc_info=True)
+            raise
+
+    async def get_dashboard_metrics(
+        self,
+        company_id,
+        requesting_user_id: Optional[str] = None
+    ) -> DashboardMetricsResponse:
+        """
+        Get dashboard metrics for admin dashboard
+
+        Args:
+            company_id: Company ID (int or str)
+            requesting_user_id: ID of user making the request (for authorization)
+
+        Returns:
+            Dashboard metrics matching frontend DashboardMetrics type
+
+        Raises:
+            CompanyNotFoundError: If company not found
+            AuthorizationError: If user doesn't have permission
+        """
+        try:
+            if not company_id:
+                raise ValidationError("company_id is required", {"field": "company_id"})
+
+            # Ensure company_id is int for consistent MongoDB queries
+            int_company_id = int(company_id)
+
+            company = await self.companies_collection.find_one({"_id": int_company_id})
+            if not company:
+                raise CompanyNotFoundError(f"Company not found: {company_id}")
+
+            if requesting_user_id:
+                await self._check_company_access_authorization(requesting_user_id, str(company_id))
+
+            # Call counts by status — query with both int and str to handle mixed storage
+            call_filter = {"company_id": {"$in": [int_company_id, str(int_company_id)]}}
+
+            total_calls = await self.calls_collection.count_documents(call_filter)
+            active_calls = await self.calls_collection.count_documents({
+                **call_filter,
+                "status": {"$in": ["initiated", "in_progress", "ringing"]}
+            })
+            completed_calls = await self.calls_collection.count_documents({
+                **call_filter,
+                "status": "completed"
+            })
+            failed_calls = await self.calls_collection.count_documents({
+                **call_filter,
+                "status": "failed"
+            })
+
+            # Duration aggregation
+            pipeline = [
+                {"$match": {**call_filter, "duration": {"$exists": True, "$ne": None}}},
+                {"$group": {
+                    "_id": None,
+                    "avg_duration": {"$avg": "$duration"},
+                    "total_duration": {"$sum": "$duration"}
+                }}
+            ]
+            duration_result = await self.calls_collection.aggregate(pipeline).to_list(1)
+            avg_duration = duration_result[0]["avg_duration"] if duration_result else 0.0
+            total_duration = duration_result[0]["total_duration"] if duration_result else 0.0
+
+            # Knowledge base counts — also handle both int and str
+            kb_filter = {"company_id": {"$in": [int_company_id, str(int_company_id)]}}
+            knowledge_docs_count = await self.db.knowledge_bases.count_documents(kb_filter)
+
+            # Sum up num_chunks across all knowledge docs
+            chunks_pipeline = [
+                {"$match": kb_filter},
+                {"$group": {"_id": None, "total_chunks": {"$sum": "$num_chunks"}}}
+            ]
+            chunks_result = await self.db.knowledge_bases.aggregate(chunks_pipeline).to_list(1)
+            knowledge_chunks_count = chunks_result[0]["total_chunks"] if chunks_result else 0
+
+            return DashboardMetricsResponse(
+                total_calls=total_calls,
+                active_calls=active_calls,
+                completed_calls=completed_calls,
+                failed_calls=failed_calls,
+                total_duration_minutes=round(total_duration / 60, 2) if total_duration else 0,
+                avg_call_duration_seconds=round(avg_duration, 2) if avg_duration else 0,
+                knowledge_docs_count=knowledge_docs_count,
+                knowledge_chunks_count=knowledge_chunks_count
+            )
+
+        except (CompanyNotFoundError, AuthorizationError):
+            raise
+        except Exception as e:
+            logger.error(f"Error getting dashboard metrics: {str(e)}", exc_info=True)
             raise
 
     async def _create_default_agent_config(self, company_id: str) -> None:

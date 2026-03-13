@@ -28,7 +28,7 @@ async def update_agent_tts():
                 "$set": {
                     "tts_provider": "elevenlabs",
                     "tts_model": "eleven_monolingual_v1",
-                    "tts_voice": "21m00Tcm4TlvDq8ikWAM"  # Default ElevenLabs voice
+                    "tts_voice": "XFyHddC2zKKgLBooDuhH"  # Default ElevenLabs voice
                 }
             }
         )

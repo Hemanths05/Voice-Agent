@@ -20,8 +20,8 @@ class GeminiEmbeddings(EmbeddingsBase):
     def __init__(
         self,
         api_key: str,
-        model: str = "models/embedding-001",
-        dimensions: int = 768,  # Gemini embedding-001 dimension
+        model: str = "models/gemini-embedding-001",
+        dimensions: int = 768,  # Gemini embedding dimension
         **kwargs
     ):
         """
@@ -29,7 +29,7 @@ class GeminiEmbeddings(EmbeddingsBase):
 
         Args:
             api_key: Google API key
-            model: Model name (models/embedding-001, models/text-embedding-004, etc.)
+            model: Model name (models/text-embedding-004, etc.)
             dimensions: Expected embedding dimensions
             **kwargs: Additional parameters
         """
@@ -84,6 +84,7 @@ class GeminiEmbeddings(EmbeddingsBase):
                     model=self.model,
                     content=text,
                     task_type=task_type,
+                    output_dimensionality=self.dimensions,
                 )
 
                 # Extract embedding vector
@@ -131,6 +132,7 @@ class GeminiEmbeddings(EmbeddingsBase):
                 model=self.model,
                 content="test",
                 task_type="retrieval_document",
+                output_dimensionality=self.dimensions,
             )
             return 'embedding' in result and len(result['embedding']) > 0
         except Exception as e:
