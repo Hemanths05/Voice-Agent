@@ -12,6 +12,7 @@ qdrant-client==1.7.3
 # Data Validation
 pydantic==2.5.3
 pydantic-settings==2.1.0
+email-validator==2.1.0
 python-dotenv==1.0.0
 
 # Authentication
